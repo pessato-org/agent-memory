@@ -1,0 +1,53 @@
+{
+  "_comment": "Real-world systems and their storage choices. Benchmark numbers are vendor-self-reported unless noted. Edited by the nightly maintenance job — keep 'why' paragraphs grounded in cited sources.",
+  "systems": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "tagline": "Anthropic's coding agent",
+      "stores": ["markdown files", "grep"],
+      "whyHtml": "<p>Entirely file-based: a hierarchy of <code>CLAUDE.md</code> instruction files loaded at session start, plus an auto-memory directory where the agent writes its own notes — a small always-loaded <code>MEMORY.md</code> index pointing at topic files read on demand.</p><p><strong>Why files:</strong> the team tried embedding-based retrieval and found agentic search — grep plus reading files in logical order — worked better for code. Files are transparent (users can read and edit the agent's memory), git-versioned, and need zero infrastructure. The bet: for single-project scope with a capable model, retrieval intelligence can live in the agent instead of an index.</p>",
+      "sourceIds": ["claude-code-memory", "anthropic-context-eng"]
+    },
+    {
+      "id": "letta",
+      "name": "Letta (MemGPT)",
+      "tagline": "The agent as its own memory manager",
+      "stores": ["in-context memory blocks", "Postgres + pgvector"],
+      "whyHtml": "<p>The MemGPT paper's OS metaphor, productized: labeled, size-limited <strong>memory blocks</strong> (e.g. <code>persona</code>, <code>human</code>) live <em>inside</em> the context window and the agent edits them with tools; overflow history and archival memories live in Postgres with pgvector for similarity search. Background “sleep-time agents” rewrite the blocks between conversations.</p><p><strong>Why this split:</strong> the most valuable memories should always be in attention, not fetched — so make the agent responsible for curating that scarce space itself, and page everything else to disk like virtual memory.</p>",
+      "sourceIds": ["memgpt-paper", "letta-blocks", "letta-sleep"]
+    },
+    {
+      "id": "mem0",
+      "name": "Mem0",
+      "tagline": "Memory-as-a-service for production apps",
+      "stores": ["vector store", "optional Neo4j graph"],
+      "whyHtml": "<p>A two-phase pipeline: an LLM <strong>extracts</strong> candidate facts from each exchange, then an <strong>update gate</strong> retrieves similar existing memories and decides ADD / UPDATE / DELETE / NOOP — maintenance fused into the write path. Facts land in a vector store; an optional graph layer captures entity relationships.</p><p><strong>Why vectors-first:</strong> multi-user products need paraphrase-tolerant recall at scale with tight latency budgets. Their paper reports ~90% token savings and 91% lower p95 latency versus stuffing full history into context — the economic argument for extraction over transcripts.</p>",
+      "sourceIds": ["mem0-paper"]
+    },
+    {
+      "id": "zep",
+      "name": "Zep / Graphiti",
+      "tagline": "Memory where time is first-class",
+      "stores": ["temporal knowledge graph", "hybrid search"],
+      "whyHtml": "<p>A bi-temporal knowledge graph: episode nodes (raw messages) feed an entity-and-fact layer, with community summaries above. Every fact edge records when it became true <em>and</em> when the system learned it; contradictions invalidate edges rather than delete them. Retrieval fuses embedding similarity, BM25, and graph traversal.</p><p><strong>Why a graph:</strong> facts change. A flat vector store can't cleanly answer “what's true now?” versus “what did we believe in June?” — a temporal graph makes both first-class queries, and preserves history losslessly while doing it.</p>",
+      "sourceIds": ["zep-paper", "graphiti-neo4j"]
+    },
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT memory",
+      "tagline": "Consumer memory at hundred-million scale",
+      "stores": ["preloaded profile", "offline synthesis"],
+      "whyHtml": "<p>No retrieval at question time at all: user metadata, saved facts, and rolling summaries of recent chats are <em>preloaded</em> into every conversation's context. The 2026 “dreaming” update moved curation offline — a background process periodically re-reads chat history and rewrites a self-updating memory state, revising stale facts on its own.</p><p><strong>Why preload + offline synthesis:</strong> at consumer scale, per-message retrieval latency is intolerable and users won't curate memory by hand. Spend compute overnight, keep conversations instant — literally reflection during sleep.</p>",
+      "sourceIds": ["openai-dreaming", "willison-memory"]
+    },
+    {
+      "id": "hindsight",
+      "name": "Hindsight",
+      "tagline": "Separating facts from beliefs",
+      "stores": ["four memory networks", "4-strategy retrieval"],
+      "whyHtml": "<p>An open-source memory bank split into four networks — world facts, experiences, <em>opinions with confidence scores</em>, and entity summaries — with three operations: retain, recall, reflect. Retrieval runs four strategies in parallel (semantic, BM25, graph traversal, temporal) and reranks the union.</p><p><strong>Why the split:</strong> a memory system that can't distinguish “Maya said X” from “X is true” from “I concluded X” will eventually state beliefs as facts. First system reported past 90% on LongMemEval (self-reported, like most scores in this field).</p>",
+      "sourceIds": ["hindsight-paper"]
+    }
+  ]
+}

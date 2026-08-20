@@ -1,0 +1,27 @@
+{
+  "_comment": "Every substantive claim on the site should trace to one of these. The nightly maintenance job re-verifies links, updates lastVerified, and adds new sources when content cites them. Never remove a source that content still references.",
+  "sources": [
+    { "id": "memgpt-paper", "title": "MemGPT: Towards LLMs as Operating Systems", "pub": "Packer et al., arXiv, 2023", "url": "https://arxiv.org/abs/2310.08560", "lastVerified": "2026-08-20" },
+    { "id": "generative-agents", "title": "Generative Agents: Interactive Simulacra of Human Behavior", "pub": "Park et al., arXiv, 2023 — origin of the recency × importance × relevance retrieval score and reflection", "url": "https://arxiv.org/abs/2304.03442", "lastVerified": "2026-08-20" },
+    { "id": "coala-paper", "title": "Cognitive Architectures for Language Agents (CoALA)", "pub": "Sumers et al., arXiv, 2023 — the working / episodic / semantic / procedural framing", "url": "https://arxiv.org/abs/2309.02427", "lastVerified": "2026-08-20" },
+    { "id": "anthropic-context-eng", "title": "Effective context engineering for AI agents", "pub": "Anthropic Engineering, 2025", "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents", "lastVerified": "2026-08-20" },
+    { "id": "claude-code-memory", "title": "Manage Claude's memory", "pub": "Claude Code documentation", "url": "https://code.claude.com/docs/en/memory", "lastVerified": "2026-08-20" },
+    { "id": "anthropic-memory-tool", "title": "Memory tool (memory_20250818)", "pub": "Claude API documentation", "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool", "lastVerified": "2026-08-20" },
+    { "id": "mem0-paper", "title": "Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory", "pub": "arXiv, 2025", "url": "https://arxiv.org/abs/2504.19413", "lastVerified": "2026-08-20" },
+    { "id": "zep-paper", "title": "Zep: A Temporal Knowledge Graph Architecture for Agent Memory", "pub": "arXiv, 2025", "url": "https://arxiv.org/abs/2501.13956", "lastVerified": "2026-08-20" },
+    { "id": "graphiti-neo4j", "title": "Graphiti: Knowledge Graph Memory for a Post-RAG Agentic World", "pub": "Neo4j Developer Blog", "url": "https://neo4j.com/blog/developer/graphiti-knowledge-graph-memory/", "lastVerified": "2026-08-20" },
+    { "id": "letta-blocks", "title": "Memory blocks: the key to agentic context management", "pub": "Letta Blog", "url": "https://www.letta.com/blog/memory-blocks", "lastVerified": "2026-08-20" },
+    { "id": "letta-sleep", "title": "Sleep-time compute", "pub": "Letta Blog — background agents that rewrite memory between interactions", "url": "https://www.letta.com/blog/sleep-time-compute", "lastVerified": "2026-08-20" },
+    { "id": "a-mem-paper", "title": "A-Mem: Agentic Memory for LLM Agents", "pub": "arXiv, 2025 — Zettelkasten-style dynamic note linking", "url": "https://arxiv.org/abs/2502.12110", "lastVerified": "2026-08-20" },
+    { "id": "hipporag", "title": "HippoRAG: Neurobiologically Inspired Long-Term Memory", "pub": "NeurIPS 2024", "url": "https://arxiv.org/abs/2405.14831", "lastVerified": "2026-08-20" },
+    { "id": "memory-survey-2025", "title": "Memory in the Age of AI Agents: A Survey", "pub": "arXiv, Dec 2025 — the current reference survey (forms / functions / dynamics)", "url": "https://arxiv.org/abs/2512.13564", "lastVerified": "2026-08-20" },
+    { "id": "hindsight-paper", "title": "Hindsight is 20/20: building memory that separates facts from beliefs", "pub": "Vectorize, arXiv, Dec 2025", "url": "https://arxiv.org/abs/2512.12818", "lastVerified": "2026-08-20" },
+    { "id": "openai-dreaming", "title": "ChatGPT memory and dreaming", "pub": "OpenAI, June 2026 — offline memory synthesis", "url": "https://openai.com/index/chatgpt-memory-dreaming/", "lastVerified": "2026-08-20" },
+    { "id": "willison-memory", "title": "ChatGPT memory vs Claude memory: two philosophies", "pub": "Simon Willison, 2025, building on Shlok Khemani's reverse engineering", "url": "https://simonwillison.net/2025/Sep/12/claude-memory/", "lastVerified": "2026-08-20" },
+    { "id": "cline-no-index", "title": "Why Cline doesn't index your codebase", "pub": "Cline Blog — the case against embeddings for code", "url": "https://cline.bot/blog/why-cline-doesnt-index-your-codebase-and-why-thats-a-good-thing", "lastVerified": "2026-08-20" },
+    { "id": "longmemeval", "title": "LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory", "pub": "arXiv, 2024", "url": "https://arxiv.org/abs/2410.10813", "lastVerified": "2026-08-20" },
+    { "id": "locomo", "title": "LoCoMo: Evaluating Very Long-Term Conversational Memory", "pub": "Snap Research, 2024", "url": "https://snap-research.github.io/locomo/", "lastVerified": "2026-08-20" },
+    { "id": "redis-agent-memory", "title": "Redis Agent Memory Server", "pub": "Redis — TTL-governed working memory + long-term memory lifecycle", "url": "https://github.com/redis/agent-memory-server", "lastVerified": "2026-08-20" },
+    { "id": "langmem-launch", "title": "LangMem SDK for agent long-term memory", "pub": "LangChain Blog, 2025", "url": "https://www.langchain.com/blog/langmem-sdk-launch", "lastVerified": "2026-08-20" }
+  ]
+}

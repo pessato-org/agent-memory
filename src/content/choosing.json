@@ -1,0 +1,55 @@
+{
+  "_comment": "The decision table. Columns are fixed by the UI; rows editable by the nightly maintenance job.",
+  "columns": ["substrate", "reach for it when", "retrieval you get", "what it can't do", "watch out for"],
+  "rows": [
+    {
+      "substrate": "context window",
+      "when": "The task fits in one session. Always the first resort — memory infrastructure you don't build can't rot.",
+      "retrieval": "None needed — everything is already in attention.",
+      "cant": "Persist past the session; scale past the window; stay cheap as history grows.",
+      "watch": "Context rot: quality degrades well before the hard token limit."
+    },
+    {
+      "substrate": "files (md/txt)",
+      "when": "Single user or project, human oversight matters, corpus under a few thousand entries. The right default for coding agents and personal assistants.",
+      "retrieval": "Load-whole-file, grep/keyword, agent-directed reading.",
+      "cant": "Match paraphrase (“can't eat peanuts” ≠ “allergy”); enforce structure; serve many users.",
+      "watch": "Silent bloat and contradiction — nothing forces maintenance."
+    },
+    {
+      "substrate": "key-value / Redis",
+      "when": "Session state and scratch data that should expire on its own; latency budgets in single-digit milliseconds.",
+      "retrieval": "Exact key lookup; TTL does the forgetting for free.",
+      "cant": "Search by content at all — you must know the key.",
+      "watch": "TTL is a blunt instrument: it forgets by age, not by value."
+    },
+    {
+      "substrate": "SQLite / relational",
+      "when": "Memories have structure worth enforcing — types, subjects, timestamps, supersession chains — and you want deterministic, debuggable retrieval.",
+      "retrieval": "Exact filters, recency ordering, BM25 keyword via FTS.",
+      "cant": "Semantic similarity (without a vector extension); flexible schema evolution.",
+      "watch": "Schema decisions are write policies — migrate carefully."
+    },
+    {
+      "substrate": "vector store",
+      "when": "Large heterogeneous history, many users, or queries that won't share words with what was stored. The recall layer of most memory products.",
+      "retrieval": "k-NN semantic similarity; hybrid BM25 + rerank in production.",
+      "cant": "Read its own contents — no native update, contradiction, or time handling.",
+      "watch": "Similar ≠ relevant; “allergic to peanuts” sits near “loves peanut butter”."
+    },
+    {
+      "substrate": "knowledge graph",
+      "when": "Relationships and time carry the value: multi-hop questions, facts with lifespans, fusing conversational and business data.",
+      "retrieval": "Entry-node search + bounded traversal; time-scoped queries (“as of June”).",
+      "cant": "Stay cheap — every write is several LLM calls of extraction and resolution.",
+      "watch": "Entity-resolution mistakes compound structurally and are painful to undo."
+    },
+    {
+      "substrate": "hybrid (the norm)",
+      "when": "Production systems at scale. Typical stack: KV for session state, vectors for recall, relational or graph as the source of truth.",
+      "retrieval": "Several strategies in parallel, fused and reranked.",
+      "cant": "Stay simple — you now maintain every layer you added.",
+      "watch": "Consistency between layers becomes its own maintenance job."
+    }
+  ]
+}

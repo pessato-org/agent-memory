@@ -1,0 +1,80 @@
+# Nightly self-maintenance: Claude researches the field, updates content JSON only,
+# validates, and opens a PR. Guardrails: path-scoped tools, turn/budget caps,
+# content validator + build as required checks, and .github/ is never writable.
+#
+# Required repo secret: ANTHROPIC_API_KEY
+# Recommended repo settings:
+#   - Branch protection on main: require PR + the "build" check
+#   - To go fully autonomous later: enable auto-merge and uncomment the automerge job
+
+name: Nightly maintenance
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # 05:17 UTC nightly (off-peak; GitHub delays round hours)
+  workflow_dispatch: # manual run + keeps cron alive on public repos
+
+concurrency:
+  group: nightly-maintenance
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write # required for the action's GitHub App auth
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Claude maintenance
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read MAINTENANCE.md at the repository root and follow it exactly.
+            Get today's date with `date -u +%F` and use it for lastVerified stamps,
+            the branch name, and the commit message. Remember: if nothing significant
+            changed in the field, make no edits and open no PR.
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 50
+            --allowedTools "WebSearch,WebFetch,Read,Glob,Grep,Edit(src/content/**),Write(src/content/**),Bash(date:*),Bash(npm run build),Bash(node scripts/validate-content.mjs),Bash(git status),Bash(git diff:*),Bash(git log:*),Bash(git checkout:*),Bash(git add src/content/*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh pr list:*)"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          gh issue create \
+            --title "Nightly maintenance failed ($(date -u +%F))" \
+            --body "The scheduled content-maintenance run failed. See: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # Fully autonomous mode: uncomment once you trust the pipeline.
+  # Requires branch protection on main with the "build" check required,
+  # and "Allow auto-merge" enabled in repo settings.
+  #
+  # automerge:
+  #   needs: maintain
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Auto-merge tonight's PR when checks pass
+  #       run: |
+  #         PR=$(gh pr list --head "nightly/content-$(date -u +%F)" --json number -q '.[0].number')
+  #         if [ -n "$PR" ]; then gh pr merge "$PR" --auto --squash; fi
+  #       env:
+  #         GH_TOKEN: ${{ github.token }}

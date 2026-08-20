@@ -1,0 +1,37 @@
+{
+  "_comment": "Memory-type taxonomy cards. Based on the CoALA framing (Sumers et al. 2023) which remains the field's shared vocabulary. Edited by the nightly maintenance job.",
+  "types": [
+    {
+      "id": "working",
+      "label": "in the context window",
+      "title": "Working memory",
+      "body": "Whatever is in the context window right now: the conversation, tool results, retrieved memories. It's the only memory the model can actually attend to — everything else exists to feed it. Finite, expensive, and degrades when overloaded (“context rot”).",
+      "example": "In the scenario: the Friday-dinner request, plus whichever of m1–m5 retrieval just loaded.",
+      "policies": "Written implicitly by running. Maintained by compaction: summarize-and-restart when the window fills."
+    },
+    {
+      "id": "episodic",
+      "label": "what happened",
+      "title": "Episodic memory",
+      "body": "Records of specific events: conversations, actions taken, outcomes. High volume, individually low value — but the raw material every other kind is distilled from, and the only source of precedent (“like last time”).",
+      "example": "m2 — “Booked Luna for Maya + Sam, Friday 19:00.” And m5, the breakup conversation.",
+      "policies": "Written by automatic logging. Retrieved by recency or similarity. Maintained by summarization and TTL expiry — old episodes get compressed into semantic facts, then dropped."
+    },
+    {
+      "id": "semantic",
+      "label": "what is true",
+      "title": "Semantic memory",
+      "body": "Distilled facts about the world, stripped of the episode that taught them: preferences, relationships, constraints. Small, dense, high value per token — and the kind that can silently become false.",
+      "example": "m1 — “Maya is allergic to peanuts.” m3 — “Sam is Maya's partner” (true until Aug 18).",
+      "policies": "Written by LLM extraction from episodes. Retrieved by subject/type filters or similarity. Maintained by contradiction resolution and supersession — the hardest maintenance job there is."
+    },
+    {
+      "id": "procedural",
+      "label": "how to behave",
+      "title": "Procedural memory",
+      "body": "Skills, rules, and learned behaviour — including the system prompt itself. Not facts about the world but policies for acting in it. Usually loaded unconditionally rather than retrieved, because a rule you don't load is a rule you don't follow.",
+      "example": "m4 — “Before booking any restaurant, check the menu for peanut dishes.” Learned from a near-miss.",
+      "policies": "Written by deliberate promotion — a lesson has to earn its place. Maintained by review: stale rules cost adherence on every future task."
+    }
+  ]
+}

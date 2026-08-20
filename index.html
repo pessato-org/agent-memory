@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Memory — how agents remember</title>
+  <meta name="description" content="An interactive, visual guide to agent memory layers: how AI agents write, store, retrieve, and maintain memory across files, SQLite, vector stores, and graph databases." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='34' fill='none' stroke='%23FFB454' stroke-width='9'/><circle cx='50' cy='50' r='10' fill='%23FFB454'/></svg>" />
+</head>
+<body>
+  <div id="app">
+    <!-- ============ HERO ============ -->
+    <header class="hero">
+      <canvas id="hero-canvas" aria-hidden="true"></canvas>
+      <div class="hero-overlay">
+        <p class="eyebrow mono">agent-memory · a field guide</p>
+        <h1>How agents<br /><em>remember.</em></h1>
+        <p class="hero-sub">
+          A language model forgets everything between calls. Everything an agent
+          seems to “know” about you was deliberately written down, stored somewhere,
+          found again, and kept true. This is a visual guide to that machinery —
+          the same memories, traced through files, SQL rows, vector spaces, and graphs.
+        </p>
+        <p class="hero-hint mono" aria-hidden="true">scroll ↓</p>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ THE PROBLEM ============ -->
+      <section id="problem" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">01 · why memory exists</p>
+          <h2 id="problem-title"></h2>
+          <div id="problem-body"></div>
+        </div>
+      </section>
+
+      <!-- ============ THE LOOP ============ -->
+      <section id="loop" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">02 · the memory loop</p>
+          <h2 id="loop-title"></h2>
+          <div id="loop-intro"></div>
+        </div>
+        <div id="loop-stages" class="loop-stages"></div>
+      </section>
+
+      <!-- ============ SCENARIO ============ -->
+      <section id="scenario" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">03 · one running example</p>
+          <h2 id="scenario-title"></h2>
+          <div id="scenario-body"></div>
+        </div>
+        <div id="scenario-memories" class="memory-cards"></div>
+      </section>
+
+      <!-- ============ EXPLORER ============ -->
+      <section id="explorer" class="section section-wide">
+        <div class="prose">
+          <p class="eyebrow mono">04 · the same memory, four shapes</p>
+          <h2 id="explorer-title"></h2>
+          <div id="explorer-intro"></div>
+        </div>
+
+        <div class="explorer">
+          <div class="explorer-controls">
+            <div class="store-tabs" id="store-tabs" role="tablist" aria-label="Memory store"></div>
+            <div class="explorer-controls-right">
+              <div class="phase-buttons" id="phase-buttons" role="group" aria-label="Memory phase"></div>
+              <div class="depth-toggle" id="depth-toggle" role="group" aria-label="Depth of explanation">
+                <span class="mono depth-label">depth</span>
+              </div>
+            </div>
+          </div>
+          <div class="explorer-stage">
+            <div class="explorer-canvas-wrap">
+              <canvas id="explorer-canvas"></canvas>
+              <div class="explorer-caption mono" id="explorer-caption"></div>
+            </div>
+            <aside class="explorer-panel">
+              <div class="panel-explain" id="panel-explain"></div>
+              <div class="panel-inspector">
+                <p class="mono inspector-label" id="inspector-label"></p>
+                <pre class="mono" id="inspector-code"></pre>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAXONOMY ============ -->
+      <section id="taxonomy" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">05 · kinds of memory</p>
+          <h2 id="taxonomy-title"></h2>
+          <div id="taxonomy-intro"></div>
+        </div>
+        <div id="taxonomy-cards" class="taxonomy-cards"></div>
+      </section>
+
+      <!-- ============ REAL SYSTEMS ============ -->
+      <section id="systems" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">06 · systems in the wild</p>
+          <h2 id="systems-title"></h2>
+          <div id="systems-intro"></div>
+        </div>
+        <div id="systems-cards" class="systems-cards"></div>
+      </section>
+
+      <!-- ============ CHOOSING ============ -->
+      <section id="choosing" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">07 · choosing a store</p>
+          <h2 id="choosing-title"></h2>
+          <div id="choosing-intro"></div>
+        </div>
+        <div id="choosing-table"></div>
+      </section>
+
+      <!-- ============ SOURCES ============ -->
+      <section id="sources" class="section">
+        <div class="prose">
+          <p class="eyebrow mono">08 · sources</p>
+          <h2>Read the primary material</h2>
+          <p>Every claim on this page traces back to one of these. The list is
+          re-verified automatically; each entry shows when it was last checked.</p>
+        </div>
+        <div id="sources-list"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p class="mono" id="footer-meta"></p>
+      <p>Built as a living document — this site re-researches its own subject nightly and files a pull request when the field moves.</p>
+    </footer>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+{
+  "_comment": "The explorer's content: 4 stores x 3 phases x 3 depth levels, plus inspector payloads. Edited by the nightly maintenance job. Inspector code strings use lightweight markup: «hl»amber highlight«/hl» (stored memory), «q»cyan«/q» (query/retrieval), «m»violet«/m» (maintenance), «dim»muted«/dim», «del»struck-through«/del».",
+  "stores": [
+    {
+      "id": "files",
+      "label": "files.md",
+      "name": "Plain files — txt / Markdown",
+      "phases": {
+        "store": {
+          "caption": "write(m1): append one line to memory/maya.md",
+          "depth": {
+            "1": {
+              "title": "Write it down. Literally.",
+              "html": "<p>The simplest possible memory: the agent keeps a text file per topic and, when it learns something worth keeping, appends a sentence. Maya mentions her allergy → the agent adds one bullet under <code>## Preferences</code>.</p><p>No database, no index, no infrastructure. A human can open the file and read — or fix — the agent's entire memory.</p>"
+            },
+            "2": {
+              "title": "Structure comes from the document, not a schema",
+              "html": "<p>Headings act as a soft schema: <code>## Preferences</code>, <code>## People</code>, <code>## Lessons</code>. The agent writes with the same file-editing tools it uses for code, deciding at write time <em>which section</em> a fact belongs in — that decision is the whole data model.</p><p>Most systems keep a small index file (like a <code>MEMORY.md</code> with one line per memory file) that is always loaded, while detail files are loaded on demand. That two-tier trick keeps the always-paid token cost tiny.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>This is how Claude Code's memory works: a <code>CLAUDE.md</code> / memory directory of Markdown files the agent edits with ordinary <code>Write</code> and <code>Edit</code> tools. Being plain files buys real properties for free: <strong>git history</strong> (every memory change is a diff with an author and a date), human auditability, portability across models, and zero write-time latency or embedding cost.</p><p>The write policy is pure prompt engineering: instructions tell the model what counts as durable (preferences, corrections, standing constraints) and what doesn't (session trivia). There is no mechanical enforcement — which is both the flexibility and the risk.</p>"
+            }
+          },
+          "inspector": {
+            "label": "memory/maya.md — after write(m1…m4)",
+            "code": "# Maya\n\n## Preferences\n«hl»- Allergic to peanuts (severe). Mentioned 2026-08-01.«/hl»\n- Prefers dinner reservations around 19:00.\n\n## People\n- Sam — Maya's partner.\n\n## History\n- 2026-08-04: Booked Luna (Italian), table for 2\n  (Maya + Sam), Friday 19:00. Went well.\n\n## Lessons\n- Before booking any restaurant, check the menu\n  for peanut dishes first. (Near-miss on 08-09.)"
+          }
+        },
+        "retrieve": {
+          "caption": "retrieve(): load the file — or grep for it",
+          "depth": {
+            "1": {
+              "title": "Just read the file",
+              "html": "<p>When Friday's dinner request comes in, the agent reads <code>memory/maya.md</code> into its context. Everything about Maya arrives at once — the allergy, the last booking, the lesson. For one person's file, that's a few hundred tokens. Done.</p>"
+            },
+            "2": {
+              "title": "Whole-file load, or search when it grows",
+              "html": "<p>Two modes. <strong>Load-always:</strong> small, curated files are simply placed in context at session start — retrieval cost zero, but you pay their tokens every call. <strong>Search-on-demand:</strong> when memory outgrows that, the agent greps across files (<code>grep -ri \"allerg\" memory/</code>) and reads only matching sections.</p><p>Note who does the retrieving: <em>the agent itself</em>, deciding what to search for. This “agentic retrieval” is slower than an index lookup but adapts the query as understanding improves.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Grep is <strong>exact lexical match</strong>. It finds <code>allerg</code> in “allergic” — but a memory phrased “can't eat peanuts” never matches a search for “allergy”. No ranking either: results come back in file order, and relevance is judged by the model reading them.</p><p>In practice this works far beyond intuition — thousands of lines, agentic search with a capable model, sub-second grep — and a school of practitioners argues files+grep should be the default until proven insufficient. The real ceilings: paraphrase (no semantic match), cross-file relationships, and multi-user scale.</p>"
+            }
+          },
+          "inspector": {
+            "label": "$ agent retrieval trace",
+            "code": "«q»> task: “Find somewhere for dinner on Friday.”«/q»\n\n«dim»$«/dim» cat memory/maya.md\n«dim»  → 214 tokens loaded into context«/dim»\n\n«dim»$«/dim» grep -ri «q»\"friday\\|dinner\\|restaurant\"«/q» memory/\n«hl»maya.md:12: 2026-08-04: Booked Luna (Italian) …«/hl»\n«hl»maya.md:16: Before booking any restaurant, check«/hl»\n«hl»         the menu for peanut dishes first.«/hl»\n\n«dim»model now sees: allergy, precedent, procedure ✓«/dim»"
+          }
+        },
+        "maintain": {
+          "caption": "maintain(): the agent rewrites its own notes",
+          "depth": {
+            "1": {
+              "title": "Edit the file, like a person would",
+              "html": "<p>Maya says she and Sam broke up. The agent opens the file and edits it: the “Sam — partner” line becomes “Sam — ex-partner (as of 2026-08-18)”. Maintenance here is just… editing text. The same skill the agent already has.</p>"
+            },
+            "2": {
+              "title": "Consolidation is a rewrite pass",
+              "html": "<p>Periodically (or when a file gets long), the agent re-reads a file and rewrites it: merging duplicate bullets, tightening wording, moving one-off events into a summarized history, deleting what stopped mattering. This is the file-world's version of what memory researchers call <strong>consolidation</strong> — and it's an LLM call over the whole file.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Failure modes are distinctive: nothing <em>forces</em> maintenance, so files silently bloat and contradict until someone (agent or human) notices — “memory rot”. But git gives files a superpower no other store has by default: <strong>history of the memory itself</strong>. <code>git log -p memory/maya.md</code> shows exactly when the agent learned, revised, or deleted each fact — supersession as version control rather than schema.</p>"
+            }
+          },
+          "inspector": {
+            "label": "git diff — after maintain(m5)",
+            "code": "«dim»$ git diff memory/maya.md«/dim»\n\n ## People\n«del»- Sam — Maya's partner.«/del»\n«m»+ Sam — ex-partner (broke up 2026-08-18).«/m»\n«m»+   Don't assume Sam joins bookings.«/m»\n\n ## History\n  - 2026-08-04: Booked Luna (Italian) …\n«m»+ - 2026-08-18: Maya said she and Sam broke up.«/m»\n\n«dim»$ git log --oneline memory/maya.md«/dim»\n«dim»  9f21c4a update: Sam relationship ended«/dim»\n«dim»  4b03e17 add lesson: menu check for allergens«/dim»"
+          }
+        }
+      }
+    },
+    {
+      "id": "sqlite",
+      "label": "sqlite",
+      "name": "Relational rows — SQLite",
+      "phases": {
+        "store": {
+          "caption": "write(m1): INSERT one structured row",
+          "depth": {
+            "1": {
+              "title": "One memory, one row",
+              "html": "<p>Instead of a sentence in a file, each memory becomes a <strong>row in a table</strong>: the text, plus labeled columns — who it's about, what kind it is, when it was learned. Writing a memory means inserting a row. The structure is decided once, up front, in the schema.</p>"
+            },
+            "2": {
+              "title": "The schema is the write policy, enforced",
+              "html": "<p>Columns like <code>type</code>, <code>subject</code>, <code>created_at</code>, <code>confidence</code>, <code>superseded_by</code> force every memory to answer the same questions at write time. That's the trade against files: less freedom, but the database can now <em>guarantee</em> things — uniqueness constraints stop exact duplicates, foreign keys keep supersession chains consistent.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>SQLite is the pragmatic choice for single-agent memory: one file on disk, zero server, transactional writes, and it's already embedded everywhere. Add <code>FTS5</code> (built-in full-text index with BM25 ranking) and you get real keyword search; extensions like <code>sqlite-vec</code> even add vector columns — so one file can be a relational, lexical, <em>and</em> vector store. Many desktop agent products ship exactly this.</p>"
+            }
+          },
+          "inspector": {
+            "label": "memories.db — schema + INSERT",
+            "code": "CREATE TABLE memories (\n  id            TEXT PRIMARY KEY,\n  subject       TEXT NOT NULL,\n  type          TEXT CHECK(type IN\n                ('semantic','episodic','procedural')),\n  text          TEXT NOT NULL,\n  created_at    TEXT NOT NULL,\n  confidence    REAL DEFAULT 1.0,\n  superseded_by TEXT REFERENCES memories(id)\n);\n\n«hl»INSERT INTO memories VALUES«/hl»\n«hl»  ('m1','maya','semantic',«/hl»\n«hl»   'Allergic to peanuts (severe).',«/hl»\n«hl»   '2026-08-01', 1.0, NULL);«/hl»"
+          }
+        },
+        "retrieve": {
+          "caption": "retrieve(): filter, rank, LIMIT — in milliseconds",
+          "depth": {
+            "1": {
+              "title": "Ask precise questions, get exact answers",
+              "html": "<p>Retrieval is a query: “give me every current fact about Maya” or “her last three bookings, newest first”. The database filters and sorts; only matching rows come back. Fast, exact, and cheap — no model involved in the lookup itself.</p>"
+            },
+            "2": {
+              "title": "Filters + recency + keyword",
+              "html": "<p>The workhorse patterns: <strong>attribute filters</strong> (<code>WHERE subject='maya' AND type='semantic' AND superseded_by IS NULL</code>), <strong>recency</strong> (<code>ORDER BY created_at DESC LIMIT 5</code>), and <strong>keyword search</strong> via the FTS index for free-text queries. The agent — or plain application code — composes these per task. Note the <code>superseded_by IS NULL</code> clause: the schema makes “only current truth” a one-line guarantee.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>FTS5 <code>MATCH</code> is tokenized BM25 — better than grep (stemming, ranking) but still lexical: “can't eat peanuts” won't surface for the query “allergy” unless a word overlaps. What SQL buys that no other substrate does as cheaply: <strong>determinism and debuggability</strong>. The same query always returns the same rows, retrieval failures reproduce exactly, and <code>EXPLAIN QUERY PLAN</code> tells you why. That's why structured stores anchor the “truth layer” even in systems whose recall layer is vectors.</p>"
+            }
+          },
+          "inspector": {
+            "label": "query — before booking Friday's dinner",
+            "code": "«q»SELECT id, type, text FROM memories«/q»\n«q»WHERE subject = 'maya'«/q»\n«q»  AND superseded_by IS NULL«/q»\n«q»ORDER BY created_at DESC;«/q»\n\n«hl»m5 | episodic   | Maya: “Sam and I broke up.”«/hl»\n«hl»m4 | procedural | Check menu for peanut dishes.«/hl»\n«hl»m2 | episodic   | Booked Luna for 2, Fri 19:00.«/hl»\n«hl»m1 | semantic   | Allergic to peanuts (severe).«/hl»\n«dim»-- 4 rows in 0.2 ms; m3 excluded automatically«/dim»"
+          }
+        },
+        "maintain": {
+          "caption": "maintain(): UPDATE, supersede, expire — with guarantees",
+          "depth": {
+            "1": {
+              "title": "Change the row, keep the receipt",
+              "html": "<p>When the breakup news arrives, the agent doesn't delete the old fact — it marks it <em>superseded</em> by the new one. Old truth stays on record; queries for “current” facts skip it automatically. Cleanup jobs can also expire rows nobody has touched in months.</p>"
+            },
+            "2": {
+              "title": "Maintenance as scheduled queries",
+              "html": "<p>Because state is structured, maintenance becomes ordinary jobs: a supersession <code>UPDATE</code> when facts conflict, a TTL sweep (<code>DELETE WHERE type='episodic' AND created_at &lt; date('now','-90 days')</code> — after summarizing them), a dedupe pass over near-identical text. Each policy is a few lines of SQL running on a schedule — testable, loggable, reversible inside a transaction.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>The hard part isn't the SQL — it's <em>detecting</em> that m5 contradicts m3. Nothing in a relational store knows “broke up” negates “partner”; an LLM has to make that judgment at write time, then the database records the outcome. This split is the general pattern across all substrates: <strong>models decide, stores enforce.</strong> SQL is simply the substrate where the enforcement half is strongest and cheapest.</p>"
+            }
+          },
+          "inspector": {
+            "label": "maintenance transaction — m5 supersedes m3",
+            "code": "«dim»-- LLM judged: m5 contradicts m3«/dim»\nBEGIN;\n«m»INSERT INTO memories VALUES«/m»\n«m»  ('m5','maya','episodic',«/m»\n«m»   'Maya: “Sam and I broke up.”',«/m»\n«m»   '2026-08-18', 1.0, NULL);«/m»\n«m»UPDATE memories SET superseded_by = 'm5'«/m»\n«m»WHERE id = 'm3';«/m»\nCOMMIT;\n\n«dim»-- nightly TTL sweep (after summarization)«/dim»\n«dim»DELETE FROM memories WHERE type='episodic'«/dim»\n«dim»  AND created_at < date('now','-90 days');«/dim»"
+          }
+        }
+      }
+    },
+    {
+      "id": "vector",
+      "label": "vectors",
+      "name": "Vector store — embeddings",
+      "phases": {
+        "store": {
+          "caption": "write(m1): embed the text, upsert the point",
+          "depth": {
+            "1": {
+              "title": "Meaning becomes a location",
+              "html": "<p>An <strong>embedding model</strong> reads “Allergic to peanuts” and outputs a long list of numbers — a coordinate in a space with hundreds of dimensions. Texts that <em>mean</em> similar things land <em>near</em> each other, whatever words they use. Storing a memory means dropping a point into that space, with the original text attached.</p>"
+            },
+            "2": {
+              "title": "Embed → upsert → index",
+              "html": "<p>The write path: extract the memory text, call the embedding model (one network call, a few milliseconds), then upsert <code>{id, vector, payload}</code> into the store. The payload carries the raw text plus metadata — subject, type, timestamp — because the vector itself is one-way: you can't read a fact back out of coordinates.</p><p>Behind the scenes the store threads the new point into an index so that later searches don't have to compare against every point.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Decisions that matter here: <strong>what unit to embed</strong> (a whole conversation? a chunk? one extracted fact? — extracted facts retrieve far more precisely than raw transcript chunks), <strong>which model</strong> (dimension counts from ~256 to ~3072; bigger ≠ better past a point), and <strong>which store</strong> — pgvector inside Postgres you already run, or a dedicated engine (Qdrant, Chroma, LanceDB, Milvus, Turbopuffer). The index is typically <strong>HNSW</strong>, a layered navigable-small-world graph giving approximate nearest-neighbour search in roughly logarithmic time.</p>"
+            }
+          },
+          "inspector": {
+            "label": "embed + upsert — m1",
+            "code": "«dim»POST /v1/embeddings«/dim»\n{ \"input\": «hl»\"Allergic to peanuts (severe).\"«/hl» }\n«dim»→ 1024 floats:«/dim»\n[ 0.0213, -0.0871, 0.1140, -0.0034,\n  0.0455,  0.0912, … ×1018 more ]\n\n«hl»client.upsert(\"memories\", {«/hl»\n«hl»  id: \"m1\",«/hl»\n«hl»  vector: [0.0213, -0.0871, …],«/hl»\n«hl»  payload: { subject: \"maya\",«/hl»\n«hl»    type: \"semantic\", ts: \"2026-08-01\",«/hl»\n«hl»    text: \"Allergic to peanuts (severe).\" }«/hl»\n«hl»})«/hl»"
+          }
+        },
+        "retrieve": {
+          "caption": "retrieve(): nearest neighbours to the query's meaning",
+          "depth": {
+            "1": {
+              "title": "Search by meaning, not by words",
+              "html": "<p>The query “find somewhere for dinner Friday” is embedded too — it becomes a point in the same space. The store returns the memories whose points sit closest. This is the superpower: <em>“booked Luna (Italian) for two”</em> is nearby even though it shares almost no words with the query. Paraphrase, synonyms, even other languages — geometry doesn't care.</p>"
+            },
+            "2": {
+              "title": "k-NN + filters + a similarity score",
+              "html": "<p>The call: embed the query, ask for the top-<code>k</code> nearest points by <strong>cosine similarity</strong>, optionally pre-filtered by metadata (<code>subject = \"maya\"</code>). Each hit comes back with a score — useful for cutting off weak matches — and its payload text, which is what actually enters the context window. The vector was only ever the address.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Similarity ≠ relevance: “allergic to peanuts” and “loves peanut butter” embed <em>near each other</em> (same topic!), which is why score thresholds alone are treacherous. Production retrieval is therefore usually <strong>hybrid</strong>: vector search for recall, BM25 keyword search in parallel, results fused (reciprocal-rank fusion) and passed through a <strong>reranker</strong> — a small cross-encoder that reads query and candidate together and re-scores properly. And HNSW is <em>approximate</em>: recall ~95–99%, occasionally missing a true neighbour. Speed is bought with certainty.</p>"
+            }
+          },
+          "inspector": {
+            "label": "k-NN search — Friday dinner query",
+            "code": "«q»q = embed(\"Find somewhere for dinner Friday\")«/q»\n«q»client.search(\"memories\", vector=q,«/q»\n«q»  filter={subject:\"maya\"}, limit=4)«/q»\n\n«dim»score   id  payload.text«/dim»\n«hl»0.81    m2  Booked Luna for 2, Fri 19:00«/hl»\n«hl»0.74    m4  Check menu for peanut dishes«/hl»\n«hl»0.69    m1  Allergic to peanuts (severe)«/hl»\n«dim»0.31    m5  “Sam and I broke up.”  ✗ cut«/dim»\n\n«dim»note: m1 found with zero shared words ✓«/dim»"
+          }
+        },
+        "maintain": {
+          "caption": "maintain(): the store can't read its own points",
+          "depth": {
+            "1": {
+              "title": "Update by replacing the point",
+              "html": "<p>Vectors can't be edited the way text can — to change a memory, you re-embed the new text and overwrite the point by its id. To forget one, you delete its point. The catch: the store has no idea what any point <em>says</em>, so noticing that two points contradict each other is not something it can do by itself.</p>"
+            },
+            "2": {
+              "title": "An LLM gatekeeper at write time",
+              "html": "<p>The now-standard pattern (popularized by Mem0): before writing a new memory, first <em>search for its own neighbours</em>. If a very similar memory exists, an LLM compares the two and decides — <code>ADD</code> (genuinely new), <code>UPDATE</code> (refines the old one), <code>DELETE</code>/supersede (contradicts it), or <code>NOOP</code> (duplicate). Maintenance happens continuously at the write path, because that's the only moment anything is looking at the content.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Remaining chores: <strong>near-duplicate sweeps</strong> (pairs above ~0.95 similarity get merged by an LLM), <strong>staleness decay</strong> (down-weighting scores by age or last-access, since embeddings encode no notion of time), and the operational one — <strong>re-embedding migrations</strong>: change your embedding model and every stored vector must be regenerated, because two models' spaces are mutually meaningless. Deletes also only tombstone in HNSW; the index needs periodic rebuilds. The pattern holds: the geometry does recall, an LLM does judgment.</p>"
+            }
+          },
+          "inspector": {
+            "label": "write-time gate — m5 arrives",
+            "code": "«dim»1. search neighbours of new memory m5:«/dim»\n«dim»   0.87  m3  “Sam is Maya's partner.”«/dim»\n\n«dim»2. LLM gate: (m5 vs m3) →«/dim» «m»CONTRADICTS«/m»\n\n«dim»3. apply:«/dim»\n«m»client.delete(\"memories\", ids=[\"m3\"])«/m»\n«m»client.upsert(\"memories\", { id: \"m5\",«/m»\n«m»  vector: embed(\"Maya and Sam broke up\"),«/m»\n«m»  payload: { …, supersedes: \"m3\" } })«/m»\n\n«dim»4. nightly: merge pairs with sim > 0.95;«/dim»\n«dim»   decay scores by last_accessed age«/dim»"
+          }
+        }
+      }
+    },
+    {
+      "id": "graph",
+      "label": "graph",
+      "name": "Knowledge graph — entities & edges",
+      "phases": {
+        "store": {
+          "caption": "write(m1): extract entities, merge triples into the graph",
+          "depth": {
+            "1": {
+              "title": "Memories become connections",
+              "html": "<p>A graph store doesn't keep sentences — it keeps <strong>things and the relationships between them</strong>. “Maya is allergic to peanuts” becomes two nodes, <em>Maya</em> and <em>Peanuts</em>, joined by an <code>ALLERGIC_TO</code> edge. Each new memory doesn't pile up beside the others; it <em>wires into</em> what's already known.</p>"
+            },
+            "2": {
+              "title": "Extraction, resolution, merge",
+              "html": "<p>The write path is the heaviest of the four stores: an LLM reads the utterance, extracts entities and relations, then <strong>entity resolution</strong> decides whether this “Sam” is the Sam node we already have or someone new. Only then are triples merged. Edges carry provenance (which conversation produced them) and — in temporal graphs — a <code>valid_from</code> timestamp, because relationships have lifespans.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Modern agent-memory graphs (Zep's Graphiti is the reference design) are <strong>temporal knowledge graphs</strong> with layers: an <em>episode</em> layer storing raw conversation events, an <em>entity</em> layer of resolved nodes and facts extracted from them, and often a <em>community</em> layer of cluster summaries above that. Every fact edge is bitemporal — when it became true in the world vs. when the system learned it. Costs are real: each write is several LLM calls, and extraction errors (bad entity merges) compound structurally.</p>"
+            }
+          },
+          "inspector": {
+            "label": "extraction + merge — m1",
+            "code": "«dim»utterance: “I can't do the Thai place —«/dim»\n«dim»            peanut allergy.”«/dim»\n\n«dim»extracted:«/dim»\n«hl»(:Person {name:\"Maya\"})«/hl»\n«hl»  -[:ALLERGIC_TO {severity:\"severe\",«/hl»\n«hl»     valid_from:\"2026-08-01\",«/hl»\n«hl»     source:\"episode_017\"}]->«/hl»\n«hl»(:Food {name:\"Peanuts\"})«/hl»\n\n«dim»entity resolution:«/dim»\n«dim»  “Maya” → existing node person_004 ✓«/dim»\n«dim»  “Peanuts” → new node food_112 +«/dim»"
+          }
+        },
+        "retrieve": {
+          "caption": "retrieve(): walk outward from what the question touches",
+          "depth": {
+            "1": {
+              "title": "Follow the connections",
+              "html": "<p>To prepare Friday's booking, start at the <em>Maya</em> node and walk her edges: allergic to peanuts, booked Luna before, was partnered with Sam. One hop gathers her world; a second hop reaches things <em>connected to</em> those — answers no similarity search can assemble, because they live in the links, not in any single memory.</p>"
+            },
+            "2": {
+              "title": "Entry points + traversal",
+              "html": "<p>Real graph retrieval is two-stage: first find <strong>entry nodes</strong> (by name match or embedding search over node summaries — graphs and vectors compose), then <strong>traverse</strong> a bounded neighbourhood, collecting current fact edges. The result is a small subgraph rendered as text for the context window. Multi-hop questions — “anything to avoid for Maya's dinner guests?” — are where this wins: Maya → dined-with → Sam → Sam's constraints, in two hops.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Because edges are timestamped, queries filter to <code>invalid_at IS NULL</code> — “what is true <em>now</em>” — or deliberately time-travel (“what did we believe on Aug 10?”). Production systems fuse three searches (semantic embedding, BM25 over facts, graph BFS) and rerank the union. The trade: retrieval is fast and precise, but you paid for it at write time with all that extraction — the mirror image of files, which are free to write and expensive to search well.</p>"
+            }
+          },
+          "inspector": {
+            "label": "traversal — Friday dinner query",
+            "code": "«q»MATCH (m:Person {name:\"Maya\"})-[r]-(x)«/q»\n«q»WHERE r.invalid_at IS NULL«/q»\n«q»RETURN m, r, x«/q»\n\n«hl»(Maya)-[:ALLERGIC_TO]->(Peanuts)«/hl»\n«hl»(Maya)-[:BOOKED {date:\"08-04\"}]->(Luna)«/hl»\n«hl»(Luna)-[:CUISINE]->(Italian)«/hl»\n«dim»(Maya)-[:PARTNER]->(Sam)      ✗ invalid«/dim»\n\n«dim»2nd hop from (Luna):«/dim»\n«hl»(Luna)-[:MENU_RISK]->(none found) ✓«/hl»"
+          }
+        },
+        "maintain": {
+          "caption": "maintain(): invalidate the edge, keep the history",
+          "depth": {
+            "1": {
+              "title": "Facts get an end date, not an eraser",
+              "html": "<p>The breakup doesn't delete anything. The <code>PARTNER</code> edge between Maya and Sam gets stamped <em>invalid as of Aug 18</em> — it stops appearing in “what's true now”, but the graph still remembers that it <em>was</em> true, and when. The past stays queryable; the present stays clean.</p>"
+            },
+            "2": {
+              "title": "Contradiction handling is built into the write path",
+              "html": "<p>When the new episode “Sam and I broke up” is ingested, extraction produces a fact that conflicts with the existing <code>PARTNER</code> edge between the <em>same two nodes</em> — and that structural collision is exactly what makes the contradiction <em>detectable</em>. An LLM confirms the conflict; the old edge gets <code>invalid_at</code>; the new state is written. This is the graph's signature advantage: supersession is a first-class, schema-level operation.</p>"
+            },
+            "3": {
+              "title": "Under the hood",
+              "html": "<p>Beyond edge invalidation: <strong>community re-summarization</strong> (cluster summaries refreshed as their subgraphs change), <strong>entity-merge repair</strong> (undoing a bad resolution that fused two people — the most painful failure, since edges from both got tangled), and pruning episode layers whose facts have been fully absorbed. Maintenance is the strongest and the most expensive here — the graph structure gives leverage the other stores lack, and demands upkeep they don't need.</p>"
+            }
+          },
+          "inspector": {
+            "label": "temporal invalidation — m5",
+            "code": "«dim»new episode_042: “Sam and I broke up.”«/dim»\n«dim»extracted fact conflicts with edge e_207:«/dim»\n«dim»  (Maya)-[:PARTNER]->(Sam)«/dim»\n\n«m»MATCH (:Person {name:\"Maya\"})«/m»\n«m»  -[r:PARTNER]->(:Person {name:\"Sam\"})«/m»\n«m»SET r.invalid_at = \"2026-08-18\",«/m»\n«m»    r.invalidated_by = \"episode_042\"«/m»\n\n«dim»graph now answers both:«/dim»\n«dim»  now():        Maya –partner→ ∅«/dim»\n«dim»  asOf(08-10):  Maya –partner→ Sam«/dim»"
+          }
+        }
+      }
+    }
+  ]
+}
