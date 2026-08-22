@@ -1,10 +1,27 @@
-# agent-memory — how agents remember
+# agent-memory - how agents remember
 
-An interactive, 3D visual guide to **agent memory layers**: how AI agents write, store,
-retrieve, and maintain memory across plain files, SQLite, vector stores, and knowledge
-graphs — told through one running example traced through all four substrates.
+An interactive, full-screen 3D lab for **agent memory layers**. One persistent agent
+system stays on screen while you switch its long-term memory between plain files,
+SQLite, a vector store, and a knowledge graph. Trace write, recall, and maintenance
+data flows while the interface keeps both the visual mechanics and implementation
+detail close at hand.
 
 Built with Vite + Three.js. No backend; static output.
+
+## Interaction model
+
+- **Memory substrate** changes only the highlighted long-term-memory chamber; the
+  surrounding agent architecture stays fixed for direct comparison.
+- **Write / Recall / Maintain** changes the active data route and running Maya story.
+- Every operation runs as a deterministic loop: one user message produces one moving
+  packet; when that packet reaches memory, the file, row, point, or edge visibly
+  changes; the finished state pauses before resetting.
+- A single **Overview / Full detail** control changes explanation depth without hiding
+  the visual mechanics. Full detail shows store internals and literal
+  file/SQL/vector/Cypher operations.
+- **Field notes** keeps the broader taxonomy, production examples, decision table,
+  and cited source library accessible without turning the main experience into a
+  scrolling article.
 
 ## Develop
 
@@ -15,7 +32,7 @@ npm run build    # production build → dist/
 node scripts/validate-content.mjs   # content contract check
 ```
 
-## How it stays current — the self-maintenance loop
+## How it stays current - the self-maintenance loop
 
 This site maintains itself:
 
@@ -35,7 +52,7 @@ This site maintains itself:
 2. Settings → Pages → Source: **GitHub Actions**.
 3. Branch protection on `main`: require a PR and the **build** check.
 4. Optional, for full autonomy: enable auto-merge in repo settings and uncomment the
-   `automerge` job in `maintain.yml` — nightly PRs then merge themselves when green.
+   `automerge` job in `maintain.yml` - nightly PRs then merge themselves when green.
 
 ## Content model
 

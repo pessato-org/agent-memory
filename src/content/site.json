@@ -6,17 +6,17 @@
   },
   "problem": {
     "title": "The model forgets everything. Every time.",
-    "bodyHtml": "<p>A large language model is <strong>stateless</strong>. Each API call starts from nothing: the model's only knowledge of you, the task, and everything that came before is whatever text is placed into its <strong>context window</strong> for that one call. When the call ends, it is gone.</p><p>The context window is also finite — and long before you hit the hard limit, quality degrades: models attend less reliably to material buried in the middle of a very long context, and every token you carry costs latency and money. So an agent that runs for weeks cannot simply keep appending its whole history.</p><p><strong>Memory, for an agent, is therefore an engineering discipline, not a model feature.</strong> Something in the system must decide what is worth keeping, write it somewhere durable, find the right pieces later, and keep the collection true as the world changes. The rest of this page is about the four jobs in that sentence — and about the very different data stores teams use to do them.</p>"
+    "bodyHtml": "<p>A large language model is <strong>stateless</strong>. Each API call starts from nothing: the model's only knowledge of you, the task, and everything that came before is whatever text is placed into its <strong>context window</strong> for that one call. When the call ends, it is gone.</p><p>The context window is also finite - and long before you hit the hard limit, quality degrades: models attend less reliably to material buried in the middle of a very long context, and every token you carry costs latency and money. So an agent that runs for weeks cannot simply keep appending its whole history.</p><p><strong>Memory, for an agent, is therefore an engineering discipline, not a model feature.</strong> Something in the system must decide what is worth keeping, write it somewhere durable, find the right pieces later, and keep the collection true as the world changes. The rest of this page is about the four jobs in that sentence - and about the very different data stores teams use to do them.</p>"
   },
   "loop": {
     "title": "Four jobs, one loop",
-    "introHtml": "<p>Every memory system — whether it's a Markdown file or a temporal knowledge graph — implements the same loop. The store changes; the loop doesn't.</p>",
+    "introHtml": "<p>Every memory system - whether it's a Markdown file or a temporal knowledge graph - implements the same loop. The store changes; the loop doesn't.</p>",
     "stages": [
       {
         "k": "write",
         "label": "write()",
         "title": "Decide & extract",
-        "body": "Something watches the conversation and decides what is durable: a preference, a fact, an event, a lesson. This is a filtering problem — save everything and retrieval drowns; save too little and the agent repeats its mistakes. Extraction is usually done by an LLM."
+        "body": "Something watches the conversation and decides what is durable: a preference, a fact, an event, a lesson. This is a filtering problem - save everything and retrieval drowns; save too little and the agent repeats its mistakes. Extraction is usually done by an LLM."
       },
       {
         "k": "store",
@@ -28,47 +28,47 @@
         "k": "retrieve",
         "label": "retrieve()",
         "title": "Find & load",
-        "body": "At each new task, the system pulls the few memories that matter into the context window: by loading a file, filtering rows, nearest-neighbour search over embeddings, or traversing a graph — often several of these combined, then reranked."
+        "body": "At each new task, the system pulls the few memories that matter into the context window: by loading a file, filtering rows, nearest-neighbour search over embeddings, or traversing a graph - often several of these combined, then reranked."
       },
       {
         "k": "maintain",
         "label": "maintain()",
         "title": "Keep it true",
-        "body": "The world changes and memory rots. Maintenance consolidates duplicates, summarises the old, expires the stale, and — hardest of all — resolves contradictions when a new fact invalidates an old one. Skipped maintenance is the most common way agent memory fails."
+        "body": "The world changes and memory rots. Maintenance consolidates duplicates, summarises the old, expires the stale, and - hardest of all - resolves contradictions when a new fact invalidates an old one. Skipped maintenance is the most common way agent memory fails."
       }
     ]
   },
   "scenario": {
     "title": "Meet the running example",
-    "bodyHtml": "<p>Abstractions hide the interesting differences, so this whole page uses <strong>one concrete scenario</strong>: a personal assistant agent working with a user named Maya over three weeks of ordinary requests — booking dinners, remembering people, learning from mistakes.</p><p>Five memories come out of those three weeks. Below, you'll watch <em>these exact five memories</em> get written into a Markdown file, a SQLite database, a vector store, and a knowledge graph — and see how each store answers the same question and absorbs the same plot twist.</p>",
+    "bodyHtml": "<p>Abstractions hide the interesting differences, so this whole page uses <strong>one concrete scenario</strong>: a personal assistant agent working with a user named Maya over three weeks of ordinary requests - booking dinners, remembering people, learning from mistakes.</p><p>Five memories come out of those three weeks. Below, you'll watch <em>these exact five memories</em> get written into a Markdown file, a SQLite database, a vector store, and a knowledge graph - and see how each store answers the same question and absorbs the same plot twist.</p>",
     "memories": [
       {
         "id": "m1",
         "type": "semantic",
         "date": "2026-08-01",
         "text": "Maya is allergic to peanuts.",
-        "note": "Extracted from: “I can't do the Thai place — peanut allergy.” A durable fact about the world."
+        "note": "Extracted from: “I can't do the Thai place - peanut allergy.” A durable fact about the world."
       },
       {
         "id": "m2",
         "type": "episodic",
         "date": "2026-08-04",
         "text": "Booked Luna (Italian) for Maya + Sam, Friday 19:00.",
-        "note": "A record of something that happened — useful as precedent (“somewhere like last time”)."
+        "note": "A record of something that happened - useful as precedent (“somewhere like last time”)."
       },
       {
         "id": "m3",
         "type": "semantic",
         "date": "2026-08-04",
         "text": "Sam is Maya's partner.",
-        "note": "A relationship fact. Watch this one — it won't stay true."
+        "note": "A relationship fact. Watch this one - it won't stay true."
       },
       {
         "id": "m4",
         "type": "procedural",
         "date": "2026-08-09",
         "text": "Before booking any restaurant, check the menu for peanut dishes.",
-        "note": "A lesson learned after a near-miss — how to behave, not what is true."
+        "note": "A lesson learned after a near-miss - how to behave, not what is true."
       },
       {
         "id": "m5",
@@ -83,19 +83,19 @@
   },
   "explorer": {
     "title": "Same memories, four shapes",
-    "introHtml": "<p>Pick a store, then step through the three phases. The scene shows the <strong>shape</strong> of the data; the inspector beside it shows the <strong>literal bytes</strong> — real file contents, real SQL, real vectors, real graph edges. Turn up the depth dial when you want the machinery.</p>"
+    "introHtml": "<p>Pick a store, then step through the three phases. The scene shows the <strong>shape</strong> of the data; the inspector beside it shows the <strong>literal bytes</strong> - real file contents, real SQL, real vectors, real graph edges. Turn up the depth dial when you want the machinery.</p>"
   },
   "taxonomy": {
     "title": "Not all memories are the same kind of thing",
-    "introHtml": "<p>Borrowed (loosely) from cognitive science, these categories recur in almost every agent memory paper and product. They matter because <strong>each kind has a different write trigger, a different retrieval pattern, and a different decay policy</strong> — which is why real systems usually run more than one store.</p>"
+    "introHtml": "<p>Borrowed (loosely) from cognitive science, these categories recur in almost every agent memory paper and product. They matter because <strong>each kind has a different write trigger, a different retrieval pattern, and a different decay policy</strong> - which is why real systems usually run more than one store.</p>"
   },
   "systems": {
     "title": "What real systems actually chose",
-    "introHtml": "<p>These are production systems, each with a deliberate — and different — answer to the storage question. The interesting part is never the store itself; it's the <em>why</em>.</p>"
+    "introHtml": "<p>These are production systems, each with a deliberate - and different - answer to the storage question. The interesting part is never the store itself; it's the <em>why</em>.</p>"
   },
   "choosing": {
     "title": "Choosing a substrate",
-    "introHtml": "<p>An honest heuristic: <strong>start with files, add structure when you need filters, add embeddings when you need paraphrase, add a graph when you need relationships and time.</strong> Each step down the table buys a new retrieval capability and costs you operational complexity and write-time latency. Many production systems are hybrids — a vector index for recall plus a relational or graph layer for truth.</p>"
+    "introHtml": "<p>An honest heuristic: <strong>start with files, add structure when you need filters, add embeddings when you need paraphrase, add a graph when you need relationships and time.</strong> Each step down the table buys a new retrieval capability and costs you operational complexity and write-time latency. Many production systems are hybrids - a vector index for recall plus a relational or graph layer for truth.</p>"
   },
   "footer": {
     "metaMono": "agent-memory · content last verified 2026-08-20 · maintained autonomously"

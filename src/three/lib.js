@@ -1,17 +1,17 @@
 import * as THREE from 'three'
 
-// Palette — keep in sync with CSS custom properties in styles.css
+// Palette - keep in sync with CSS custom properties in styles.css
 export const COL = {
-  bg: 0x0b0d12,
-  amber: 0xffb454,
-  amberDim: 0x8a6335,
-  cyan: 0x7dd3fc,
-  violet: 0xc4b5fd,
-  red: 0xf38ba8,
-  green: 0x9ece8f,
-  grey: 0x737b8f,
-  line: 0x232a3b,
-  text: 0xe8e6e0,
+  bg: 0xf3f0e8,
+  amber: 0xd66f28,
+  amberDim: 0xb98b69,
+  cyan: 0x177a9b,
+  violet: 0x7254a3,
+  red: 0xc44955,
+  green: 0x4c8b5f,
+  grey: 0x8a929f,
+  line: 0xd8d2c6,
+  text: 0x202630,
 }
 
 export const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -81,8 +81,9 @@ export function makeLabel(text, { color = '#a7adbd', size = 0.5, bg = null, pad 
   g.fillText(text, pad, h / 2 + 1)
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false })
   const sp = new THREE.Sprite(mat)
+  sp.renderOrder = 10
   const aspect = w / h
   sp.scale.set(size * aspect, size, 1)
   return sp

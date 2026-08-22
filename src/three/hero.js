@@ -4,8 +4,8 @@ import { COL, createStage, dotTexture, makePacket, makeLabel, curveFrom, moveAlo
 /*
   Hero: a stream of token particles flows left→right through the agent core.
   Most dissolve on the far side (forgotten). Every couple of seconds one token
-  is "written": it turns amber and arcs out to one of four orbiting stores —
-  file / rows / vectors / graph — which pulses as it absorbs the memory.
+  is "written": it turns amber and arcs out to one of four orbiting stores:
+  file / rows / vectors / graph - which pulses as it absorbs the memory.
 */
 
 export function initHero(canvas) {

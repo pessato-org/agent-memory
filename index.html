@@ -3,141 +3,113 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agent Memory — how agents remember</title>
-  <meta name="description" content="An interactive, visual guide to agent memory layers: how AI agents write, store, retrieve, and maintain memory across files, SQLite, vector stores, and graph databases." />
+  <title>Agent Memory Lab: see how agents remember</title>
+  <meta name="description" content="A full-screen interactive lab for seeing how files, SQLite, vectors, and knowledge graphs change memory inside the same agent system." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,500&display=swap" rel="stylesheet" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='34' fill='none' stroke='%23FFB454' stroke-width='9'/><circle cx='50' cy='50' r='10' fill='%23FFB454'/></svg>" />
 </head>
 <body>
-  <div id="app">
-    <!-- ============ HERO ============ -->
-    <header class="hero">
-      <canvas id="hero-canvas" aria-hidden="true"></canvas>
-      <div class="hero-overlay">
-        <p class="eyebrow mono">agent-memory · a field guide</p>
-        <h1>How agents<br /><em>remember.</em></h1>
-        <p class="hero-sub">
-          A language model forgets everything between calls. Everything an agent
-          seems to “know” about you was deliberately written down, stored somewhere,
-          found again, and kept true. This is a visual guide to that machinery —
-          the same memories, traced through files, SQL rows, vector spaces, and graphs.
-        </p>
-        <p class="hero-hint mono" aria-hidden="true">scroll ↓</p>
-      </div>
-    </header>
-
-    <main>
-      <!-- ============ THE PROBLEM ============ -->
-      <section id="problem" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">01 · why memory exists</p>
-          <h2 id="problem-title"></h2>
-          <div id="problem-body"></div>
-        </div>
-      </section>
-
-      <!-- ============ THE LOOP ============ -->
-      <section id="loop" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">02 · the memory loop</p>
-          <h2 id="loop-title"></h2>
-          <div id="loop-intro"></div>
-        </div>
-        <div id="loop-stages" class="loop-stages"></div>
-      </section>
-
-      <!-- ============ SCENARIO ============ -->
-      <section id="scenario" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">03 · one running example</p>
-          <h2 id="scenario-title"></h2>
-          <div id="scenario-body"></div>
-        </div>
-        <div id="scenario-memories" class="memory-cards"></div>
-      </section>
-
-      <!-- ============ EXPLORER ============ -->
-      <section id="explorer" class="section section-wide">
-        <div class="prose">
-          <p class="eyebrow mono">04 · the same memory, four shapes</p>
-          <h2 id="explorer-title"></h2>
-          <div id="explorer-intro"></div>
-        </div>
-
-        <div class="explorer">
-          <div class="explorer-controls">
-            <div class="store-tabs" id="store-tabs" role="tablist" aria-label="Memory store"></div>
-            <div class="explorer-controls-right">
-              <div class="phase-buttons" id="phase-buttons" role="group" aria-label="Memory phase"></div>
-              <div class="depth-toggle" id="depth-toggle" role="group" aria-label="Depth of explanation">
-                <span class="mono depth-label">depth</span>
-              </div>
+  <div id="app" class="lab-shell" data-phase="store">
+    <main class="lab-main">
+      <aside class="store-dock" aria-label="Memory substrate">
+        <div class="dock-brand">
+          <div class="brand-lockup">
+            <span class="brand-mark" aria-hidden="true"><i></i></span>
+            <div>
+              <p class="brand-name">Agent Memory Lab</p>
+              <p class="brand-sub mono">same agent · different memory</p>
             </div>
           </div>
-          <div class="explorer-stage">
-            <div class="explorer-canvas-wrap">
-              <canvas id="explorer-canvas"></canvas>
-              <div class="explorer-caption mono" id="explorer-caption"></div>
+          <button class="reference-button" id="reference-toggle" type="button">Field notes</button>
+        </div>
+        <div class="dock-heading">
+          <span class="dock-index mono">01</span>
+          <div><span class="dock-kicker mono">choose</span><strong>Memory substrate</strong></div>
+        </div>
+        <div id="store-options" class="store-options" role="tablist" aria-label="Memory substrate"></div>
+        <div class="dock-note">
+          <span class="pulse-dot"></span>
+          <p><strong>The agent stays fixed.</strong> Only its long-term memory changes.</p>
+        </div>
+      </aside>
+
+      <section class="world" aria-label="Interactive agent system visualization">
+        <canvas id="lab-canvas" aria-label="Three-dimensional diagram of an agent system and its active memory layer"></canvas>
+        <div class="world-grid" aria-hidden="true"></div>
+        <div class="world-vignette" aria-hidden="true"></div>
+
+        <div class="phase-control" id="phase-buttons" role="group" aria-label="Memory operation">
+          <span class="phase-prefix mono">OPERATION</span>
+        </div>
+
+        <div class="world-title">
+          <span class="mono" id="world-eyebrow">PLAIN FILES / STORE</span>
+          <h1 id="world-title">Watch one fact become durable memory.</h1>
+        </div>
+
+        <div class="story-strip">
+          <button class="play-button" id="play-toggle" type="button" aria-pressed="false" aria-label="Pause animation">
+            <span class="play-icon" aria-hidden="true">Ⅱ</span>
+          </button>
+          <div class="story-main">
+            <div class="story-meta">
+              <span class="mono" id="story-step">01 / EXTRACT</span>
+              <span class="mono" id="story-time">LIVE LOOP · 00:00</span>
             </div>
-            <aside class="explorer-panel">
-              <div class="panel-explain" id="panel-explain"></div>
-              <div class="panel-inspector">
-                <p class="mono inspector-label" id="inspector-label"></p>
-                <pre class="mono" id="inspector-code"></pre>
-              </div>
-            </aside>
+            <p id="story-text">The agent extracts a durable fact from Maya’s message.</p>
+            <input class="story-scrubber" id="story-scrubber" type="range" min="0" max="1000" value="0" step="1" aria-label="Animation playhead" aria-valuetext="0 seconds" />
+          </div>
+          <div class="story-actions">
+            <button class="replay-button mono" id="replay-button" type="button">↻ replay</button>
+            <button class="view-reset mono" id="view-reset" type="button">drag scene · reset</button>
           </div>
         </div>
       </section>
 
-      <!-- ============ TAXONOMY ============ -->
-      <section id="taxonomy" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">05 · kinds of memory</p>
-          <h2 id="taxonomy-title"></h2>
-          <div id="taxonomy-intro"></div>
+      <aside class="learning-panel" aria-label="Explanation">
+        <div class="panel-heading">
+          <span class="dock-index mono">02</span>
+          <div><span class="dock-kicker mono">explanation</span><strong>What you’re seeing</strong></div>
+          <div class="explanation-mode" id="explanation-mode" role="group" aria-label="Explanation detail">
+            <button type="button" data-mode="overview" aria-pressed="false">Overview</button>
+            <button type="button" data-mode="full" aria-pressed="true">Full detail</button>
+          </div>
         </div>
-        <div id="taxonomy-cards" class="taxonomy-cards"></div>
-      </section>
 
-      <!-- ============ REAL SYSTEMS ============ -->
-      <section id="systems" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">06 · systems in the wild</p>
-          <h2 id="systems-title"></h2>
-          <div id="systems-intro"></div>
+        <div class="explanation" id="explanation">
+          <p class="explanation-kicker mono" id="explanation-kicker">FILES · STORE</p>
+          <h2 id="explanation-title"></h2>
+          <div id="explanation-body"></div>
+          <section class="explanation-section" id="mechanics-section">
+            <p class="section-label mono">HOW IT WORKS</p>
+            <h3 id="mechanics-title"></h3>
+            <div id="mechanics-body"></div>
+          </section>
+          <section class="explanation-section" id="underhood-section">
+            <p class="section-label mono">UNDER THE HOOD</p>
+            <h3 id="underhood-title"></h3>
+            <div id="underhood-body"></div>
+          </section>
         </div>
-        <div id="systems-cards" class="systems-cards"></div>
-      </section>
 
-      <!-- ============ CHOOSING ============ -->
-      <section id="choosing" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">07 · choosing a store</p>
-          <h2 id="choosing-title"></h2>
-          <div id="choosing-intro"></div>
-        </div>
-        <div id="choosing-table"></div>
-      </section>
-
-      <!-- ============ SOURCES ============ -->
-      <section id="sources" class="section">
-        <div class="prose">
-          <p class="eyebrow mono">08 · sources</p>
-          <h2>Read the primary material</h2>
-          <p>Every claim on this page traces back to one of these. The list is
-          re-verified automatically; each entry shows when it was last checked.</p>
-        </div>
-        <div id="sources-list"></div>
-      </section>
+      </aside>
     </main>
 
-    <footer class="footer">
-      <p class="mono" id="footer-meta"></p>
-      <p>Built as a living document — this site re-researches its own subject nightly and files a pull request when the field moves.</p>
-    </footer>
+    <dialog id="reference-dialog" class="reference-dialog">
+      <div class="reference-shell">
+        <header class="reference-header">
+          <div>
+            <span class="mono">FIELD NOTES / AGENT MEMORY</span>
+            <h2>Go deeper without leaving the lab.</h2>
+          </div>
+          <button class="dialog-close" id="reference-close" type="button" aria-label="Close field notes">×</button>
+        </header>
+        <nav class="reference-tabs" id="reference-tabs" aria-label="Field note sections"></nav>
+        <div class="reference-content" id="reference-content"></div>
+      </div>
+    </dialog>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

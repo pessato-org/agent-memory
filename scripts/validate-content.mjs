@@ -1,6 +1,6 @@
 // Validates the content JSON the nightly maintenance job is allowed to edit.
 // Fails loudly on structural drift so a bad bot edit can never ship.
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
@@ -8,6 +8,29 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const load = (f) => JSON.parse(readFileSync(join(root, 'src/content', f), 'utf8'))
 const errors = []
 const err = (msg) => errors.push(msg)
+
+const forbiddenDash = String.fromCodePoint(0x2014)
+const checkedExtensions = new Set(['.css', '.html', '.js', '.json', '.md', '.mjs', '.yml', '.yaml'])
+const ignoredDirectories = new Set(['.git', 'dist', 'node_modules'])
+
+function checkForbiddenPunctuation(directory) {
+  for (const entry of readdirSync(directory)) {
+    if (ignoredDirectories.has(entry)) continue
+    const path = join(directory, entry)
+    if (statSync(path).isDirectory()) {
+      checkForbiddenPunctuation(path)
+      continue
+    }
+    const extension = entry.slice(entry.lastIndexOf('.'))
+    if (!checkedExtensions.has(extension)) continue
+    const text = readFileSync(path, 'utf8')
+    if (text.includes(forbiddenDash)) {
+      err(`${path.slice(root.length + 1)} contains forbidden Unicode U+2014`)
+    }
+  }
+}
+
+checkForbiddenPunctuation(root)
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const isHttps = (u) => /^https:\/\//.test(u)
