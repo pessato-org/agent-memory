@@ -35,7 +35,7 @@ checkForbiddenPunctuation(root)
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 const isHttps = (u) => /^https:\/\//.test(u)
 
-let site, stores, taxonomy, systems, choosing, sources
+let site, stores, taxonomy, systems, choosing, sources, internals
 try {
   site = load('site.json')
   stores = load('stores.json')
@@ -43,6 +43,7 @@ try {
   systems = load('systems.json')
   choosing = load('choosing.json')
   sources = load('sources.json')
+  internals = load('internals.json')
 } catch (e) {
   console.error('JSON parse failure:', e.message)
   process.exit(1)
@@ -72,6 +73,60 @@ for (const s of stores.stores ?? []) {
     }
     if (!p.inspector?.label || !p.inspector?.code)
       err(`stores.json ${s.id}.${phase} inspector needs label + code`)
+  }
+}
+
+/* internals.json - the "inside the store" chapters.
+   Chapter ids are a contract with src/three/internals.js: each id selects a
+   scene builder by name, so a renamed or reordered id silently loses a scene.
+   Rather than duplicating the list here, read it back out of the module so
+   the two can never drift apart. */
+const INTERNAL_CHAPTERS = (() => {
+  const source = readFileSync(join(root, 'src/three/internals.js'), 'utf8')
+  const classToStore = { Files: 'files', Sqlite: 'sqlite', Vector: 'vector', Graph: 'graph' }
+  const found = {}
+  for (const [, name, list] of source.matchAll(/(\w+)Internals\.CHAPTERS\s*=\s*\[([^\]]*)\]/g)) {
+    const store = classToStore[name]
+    if (!store) continue
+    found[store] = [...list.matchAll(/'([^']+)'/g)].map((m) => m[1])
+  }
+  for (const store of ['files', 'sqlite', 'vector', 'graph'])
+    if (!found[store]?.length) err(`internals.js does not declare CHAPTERS for "${store}"`)
+  return found
+})()
+if (!internals.intro?.title || !internals.intro?.html) err('internals.json needs intro.title + intro.html')
+const internalIds = (internals.stores ?? []).map((s) => s.id)
+if (JSON.stringify(internalIds) !== JSON.stringify(storeIds))
+  err('internals.json stores must match stores.json, in the same order')
+for (const store of internals.stores ?? []) {
+  if (!store.title || !store.tagline) err(`internals.json "${store.id}" needs title + tagline`)
+  const expected = INTERNAL_CHAPTERS[store.id] ?? []
+  const actual = (store.chapters ?? []).map((c) => c.id)
+  if (JSON.stringify(actual) !== JSON.stringify(expected))
+    err(`internals.json "${store.id}" chapter ids must be exactly [${expected.join(', ')}] in that order, got [${actual.join(', ')}]`)
+  for (const chapter of store.chapters ?? []) {
+    for (const k of ['label', 'title', 'html', 'takeaway'])
+      if (!chapter[k]) err(`internals.json ${store.id}.${chapter.id} missing ${k}`)
+    if (chapter.label && chapter.label.length > 14)
+      err(`internals.json ${store.id}.${chapter.id} label "${chapter.label}" is too long for the chapter rail (max 14)`)
+    if (chapter.takeaway && chapter.takeaway.length > 130)
+      err(`internals.json ${store.id}.${chapter.id} takeaway is too long (max 130)`)
+    // Beats narrate the animation as it runs: "at" is a progress mark in 0..1,
+    // and the strip shows the last beat the playhead has passed.
+    const beats = chapter.beats ?? []
+    if (beats.length < 2 || beats.length > 5)
+      err(`internals.json ${store.id}.${chapter.id} needs 2 to 5 beats, has ${beats.length}`)
+    if (beats.length && beats[0].at !== 0)
+      err(`internals.json ${store.id}.${chapter.id} first beat must start at 0`)
+    beats.forEach((beat, i) => {
+      if (typeof beat.at !== 'number' || beat.at < 0 || beat.at > 1)
+        err(`internals.json ${store.id}.${chapter.id} beat ${i} "at" must be a number in 0..1`)
+      if (i > 0 && !(beat.at > beats[i - 1].at))
+        err(`internals.json ${store.id}.${chapter.id} beat ${i} "at" must increase`)
+      if (!beat.text) err(`internals.json ${store.id}.${chapter.id} beat ${i} missing text`)
+      if (beat.text && beat.text.length > 110)
+        err(`internals.json ${store.id}.${chapter.id} beat ${i} is too long for the story strip (max 110)`)
+    })
   }
 }
 
@@ -115,6 +170,10 @@ function checkHtml(label, html) {
   if (leftover) err(`${label}: disallowed HTML tags: ${[...new Set(leftover)].join(' ')}`)
 }
 checkHtml('site.problem.bodyHtml', site.problem?.bodyHtml ?? '')
+checkHtml('internals.intro.html', internals.intro?.html ?? '')
+for (const store of internals.stores ?? [])
+  for (const chapter of store.chapters ?? [])
+    checkHtml(`internals.${store.id}.${chapter.id}.html`, chapter.html ?? '')
 for (const s of systems.systems ?? []) checkHtml(`systems.${s.id}.whyHtml`, s.whyHtml ?? '')
 for (const s of stores.stores ?? [])
   for (const phase of Object.values(s.phases ?? {}))

@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "node scripts/validate-content.mjs && vite build",
+    "preview": "vite preview",
+    "validate": "node scripts/validate-content.mjs"
   },
   "keywords": [],
   "author": "",

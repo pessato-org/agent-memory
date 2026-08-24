@@ -40,8 +40,19 @@
         <div class="world-grid" aria-hidden="true"></div>
         <div class="world-vignette" aria-hidden="true"></div>
 
-        <div class="phase-control" id="phase-buttons" role="group" aria-label="Memory operation">
-          <span class="phase-prefix mono">OPERATION</span>
+        <div class="world-controls">
+          <div class="view-switch" id="view-switch" role="tablist" aria-label="Level of detail">
+            <button type="button" role="tab" data-mode="system" aria-selected="true">
+              <span class="switch-index mono">01</span>System view
+            </button>
+            <button type="button" role="tab" data-mode="internals" aria-selected="false">
+              <span class="switch-index mono">02</span>Inside the store
+            </button>
+          </div>
+          <div class="phase-control" id="phase-buttons" role="group" aria-label="Memory operation">
+            <span class="phase-prefix mono">OPERATION</span>
+          </div>
+          <div class="chapter-rail" id="chapter-rail" role="tablist" aria-label="Mechanism chapters"></div>
         </div>
 
         <div class="world-title">
@@ -62,6 +73,10 @@
             <input class="story-scrubber" id="story-scrubber" type="range" min="0" max="1000" value="0" step="1" aria-label="Animation playhead" aria-valuetext="0 seconds" />
           </div>
           <div class="story-actions">
+            <div class="chapter-nav" id="chapter-nav" hidden>
+              <button class="chapter-step mono" id="chapter-prev" type="button" aria-label="Previous chapter">‹ prev</button>
+              <button class="chapter-step is-primary mono" id="chapter-next" type="button" aria-label="Next chapter">next ›</button>
+            </div>
             <button class="replay-button mono" id="replay-button" type="button">↻ replay</button>
             <button class="view-reset mono" id="view-reset" type="button">drag scene · reset</button>
           </div>
@@ -70,8 +85,8 @@
 
       <aside class="learning-panel" aria-label="Explanation">
         <div class="panel-heading">
-          <span class="dock-index mono">02</span>
-          <div><span class="dock-kicker mono">explanation</span><strong>What you’re seeing</strong></div>
+          <span class="dock-index mono">03</span>
+          <div><span class="dock-kicker mono" id="panel-kicker">explanation</span><strong id="panel-title">What you’re seeing</strong></div>
           <div class="explanation-mode" id="explanation-mode" role="group" aria-label="Explanation detail">
             <button type="button" data-mode="overview" aria-pressed="false">Overview</button>
             <button type="button" data-mode="full" aria-pressed="true">Full detail</button>
@@ -82,6 +97,10 @@
           <p class="explanation-kicker mono" id="explanation-kicker">FILES · STORE</p>
           <h2 id="explanation-title"></h2>
           <div id="explanation-body"></div>
+          <section class="explanation-section" id="takeaway-section" hidden>
+            <p class="section-label mono">THE POINT</p>
+            <p class="takeaway" id="takeaway-body"></p>
+          </section>
           <section class="explanation-section" id="mechanics-section">
             <p class="section-label mono">HOW IT WORKS</p>
             <h3 id="mechanics-title"></h3>
@@ -92,6 +111,7 @@
             <h3 id="underhood-title"></h3>
             <div id="underhood-body"></div>
           </section>
+          <nav class="chapter-jump" id="chapter-jump" hidden aria-label="Jump to chapter"></nav>
         </div>
 
       </aside>
