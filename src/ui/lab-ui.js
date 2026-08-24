@@ -204,7 +204,9 @@ function initReference(content) {
 
 export function initLabUI(content, sceneApi) {
   const stores = content.stores.stores
-  const state = { store: stores[0].id, phase: 'store', mode: 'full', paused: false }
+  const internals = content.internals
+  const internalsById = Object.fromEntries(internals.stores.map((store) => [store.id, store]))
+  const state = { store: stores[0].id, phase: 'store', mode: 'full', view: 'system', chapter: 0, paused: false }
   const app = document.getElementById('app')
   const storeOptions = document.getElementById('store-options')
   const phaseButtons = document.getElementById('phase-buttons')
@@ -227,14 +229,86 @@ export function initLabUI(content, sceneApi) {
   const storyText = document.getElementById('story-text')
   const storyTime = document.getElementById('story-time')
   const storyScrubber = document.getElementById('story-scrubber')
-  const duration = sceneApi.getDuration()
+  const viewSwitch = document.getElementById('view-switch')
+  const chapterRail = document.getElementById('chapter-rail')
+  const chapterNav = document.getElementById('chapter-nav')
+  const chapterPrev = document.getElementById('chapter-prev')
+  const chapterNext = document.getElementById('chapter-next')
+  const chapterJump = document.getElementById('chapter-jump')
+  const takeawaySection = document.getElementById('takeaway-section')
+  const takeawayBody = document.getElementById('takeaway-body')
+  const mechanicsSection = document.getElementById('mechanics-section')
+  const underhoodSection = document.getElementById('underhood-section')
+  const panelKicker = document.getElementById('panel-kicker')
+  const panelTitle = document.getElementById('panel-title')
 
   storeOptions.innerHTML = renderStoreControls(stores, state.store)
   phaseButtons.insertAdjacentHTML('beforeend', renderPhaseControls(state.phase))
 
   function currentStore() { return stores.find((store) => store.id === state.store) }
+  function currentInternals() { return internalsById[state.store] }
+  function currentChapter() {
+    const chapters = currentInternals().chapters
+    return chapters[Math.min(state.chapter, chapters.length - 1)]
+  }
+
+  function renderChapterRail() {
+    const chapters = currentInternals().chapters
+    chapterRail.innerHTML = chapters.map((chapter, index) => `
+      <button class="chapter-pip" type="button" role="tab" data-chapter="${index}" aria-selected="${index === state.chapter}" title="${chapter.title}">
+        <span class="pip-index mono">${String(index + 1).padStart(2, '0')}</span>
+        <span class="pip-label">${chapter.label}</span>
+      </button>`).join('')
+    chapterJump.innerHTML = chapters.map((chapter, index) => `
+      <button class="jump-row" type="button" data-chapter="${index}" aria-current="${index === state.chapter}">
+        <span class="mono">${String(index + 1).padStart(2, '0')}</span>
+        <span>${chapter.title}</span>
+      </button>`).join('')
+  }
+
+  function renderInternals() {
+    const store = currentInternals()
+    const chapter = currentChapter()
+    const chapters = store.chapters
+
+    app.dataset.view = 'internals'
+    storeOptions.querySelectorAll('.store-option').forEach((button) => {
+      button.setAttribute('aria-selected', String(button.dataset.store === state.store))
+    })
+    chapterRail.querySelectorAll('.chapter-pip').forEach((button) => {
+      button.setAttribute('aria-selected', String(Number(button.dataset.chapter) === state.chapter))
+    })
+    chapterJump.querySelectorAll('.jump-row').forEach((button) => {
+      button.setAttribute('aria-current', String(Number(button.dataset.chapter) === state.chapter))
+    })
+
+    worldEyebrow.textContent = `${STORE_META[state.store].name.toUpperCase()} / ${chapter.label}`
+    worldTitle.textContent = chapter.title
+    panelKicker.textContent = 'mechanism'
+    panelTitle.textContent = store.title
+    explanationKicker.textContent = `${String(state.chapter + 1).padStart(2, '0')} / ${String(chapters.length).padStart(2, '0')} · ${chapter.label}`
+    explanationTitle.textContent = chapter.title
+    // The framing note earns its place once, on the way in. Repeating it above
+    // every chapter would just be something to scroll past.
+    const framing = state.chapter === 0
+      ? `<div class="deep-intro"><span class="mono">${internals.intro.kicker}</span>${internals.intro.html}</div>`
+      : ''
+    explanationBody.innerHTML = `${framing}<p class="deep-tagline">${store.tagline}</p>${chapter.html}`
+    takeawayBody.textContent = chapter.takeaway
+    storyStep.textContent = `${String(state.chapter + 1).padStart(2, '0')} / ${chapter.label}`
+    lastBeat = -1
+  }
 
   function render() {
+    writeHash()
+    viewSwitch.querySelectorAll('button').forEach((button) => {
+      button.setAttribute('aria-selected', String(button.dataset.mode === state.view))
+    })
+    if (state.view === 'internals') {
+      renderInternals()
+      return
+    }
+    app.dataset.view = 'system'
     const store = currentStore()
     const phase = store.phases[state.phase]
     const phaseCopy = PHASE_COPY[state.phase]
@@ -254,24 +328,95 @@ export function initLabUI(content, sceneApi) {
     })
 
     learningPanel.dataset.mode = state.mode
+    panelKicker.textContent = 'explanation'
+    panelTitle.textContent = 'What you’re seeing'
     worldEyebrow.textContent = `${STORE_META[state.store].name.toUpperCase()} / ${phaseCopy.verb}`
     worldTitle.textContent = phaseCopy.title[state.store]
     explanationKicker.textContent = `${state.store.toUpperCase()} · ${phaseCopy.verb}`
     explanationTitle.textContent = overview.title
-    explanationBody.innerHTML = `${overview.html}<p><strong>Follow the path:</strong> ${phaseCopy.route}</p>`
+    const deepStore = currentInternals()
+    explanationBody.innerHTML = `${overview.html}`
+      + `<p><strong>Follow the path:</strong> ${phaseCopy.route}</p>`
+      + `<button class="deep-cta" type="button" data-open-internals>`
+      + `<span class="mono">02 · GO DEEPER</span>`
+      + `<strong>${deepStore.title}</strong>`
+      + `<small>${deepStore.tagline}</small>`
+      + `</button>`
     mechanicsTitle.textContent = mechanics.title
     mechanicsBody.innerHTML = mechanics.html
     underhoodTitle.textContent = underhood.title
     underhoodBody.innerHTML = underhood.html
   }
 
+  /* Applies the section visibility that differs between the two views. */
+  function applyViewChrome() {
+    const isInternals = state.view === 'internals'
+    chapterNav.hidden = !isInternals
+    chapterJump.hidden = !isInternals
+    takeawaySection.hidden = !isInternals
+    mechanicsSection.hidden = isInternals
+    underhoodSection.hidden = isInternals
+    explanationMode.hidden = isInternals
+    replayButton.hidden = isInternals
+  }
+
+  function setView(view) {
+    if (state.view === view) return
+    state.view = view
+    lastStep = -1
+    if (view === 'internals') {
+      state.chapter = 0
+      renderChapterRail()
+      sceneApi.setChapter(0)
+    }
+    sceneApi.setMode(view)
+    applyViewChrome()
+    render()
+    scheduleSafeArea()
+  }
+
+  function setChapter(index) {
+    const chapters = currentInternals().chapters
+    const next = ((index % chapters.length) + chapters.length) % chapters.length
+    state.chapter = next
+    sceneApi.setChapter(next)
+    render()
+  }
+
   storeOptions.addEventListener('click', (event) => {
     const button = event.target.closest('.store-option')
     if (!button) return
     state.store = button.dataset.store
+    state.chapter = 0
     sceneApi.setStore(state.store)
+    if (state.view === 'internals') renderChapterRail()
     render()
   })
+
+  viewSwitch.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-mode]')
+    if (!button) return
+    setView(button.dataset.mode)
+  })
+
+  chapterRail.addEventListener('click', (event) => {
+    const button = event.target.closest('.chapter-pip')
+    if (!button) return
+    setChapter(Number(button.dataset.chapter))
+  })
+
+  chapterJump.addEventListener('click', (event) => {
+    const button = event.target.closest('.jump-row')
+    if (!button) return
+    setChapter(Number(button.dataset.chapter))
+  })
+
+  explanationBody.addEventListener('click', (event) => {
+    if (event.target.closest('[data-open-internals]')) setView('internals')
+  })
+
+  chapterPrev.addEventListener('click', () => setChapter(state.chapter - 1))
+  chapterNext.addEventListener('click', () => setChapter(state.chapter + 1))
 
   phaseButtons.addEventListener('click', (event) => {
     const button = event.target.closest('.phase-button')
@@ -313,12 +458,27 @@ export function initLabUI(content, sceneApi) {
   viewReset.addEventListener('click', () => sceneApi.resetView())
 
   let lastStep = -1
-  sceneApi.onProgress(({ progress, seconds, stepIndex, step }) => {
+  let lastBeat = -1
+  sceneApi.onProgress(({ mode, progress, seconds, stepIndex, step }) => {
+    const duration = sceneApi.getDuration()
     const percent = Math.round(progress * 1000) / 10
     storyScrubber.value = String(Math.round(progress * Number(storyScrubber.max)))
     storyScrubber.style.setProperty('--progress', `${percent}%`)
     storyScrubber.setAttribute('aria-valuetext', `${seconds} of ${Math.round(duration)} seconds`)
-    storyTime.textContent = `${state.paused ? 'PAUSED' : 'LIVE LOOP'} · 00:${String(seconds).padStart(2, '0')} / 00:${String(Math.round(duration)).padStart(2, '0')}`
+    const clock = `00:${String(seconds).padStart(2, '0')} / 00:${String(Math.round(duration)).padStart(2, '0')}`
+    if (mode === 'internals') {
+      storyTime.textContent = `${state.paused ? 'PAUSED' : 'CHAPTER LOOP'} · ${clock}`
+      // Narrate the mechanism as it runs: show the last beat the playhead passed.
+      const beats = currentChapter().beats
+      let index = 0
+      for (let i = 0; i < beats.length; i += 1) if (progress >= beats[i].at) index = i
+      if (index !== lastBeat) {
+        storyText.textContent = beats[index].text
+        lastBeat = index
+      }
+      return
+    }
+    storyTime.textContent = `${state.paused ? 'PAUSED' : 'LIVE LOOP'} · ${clock}`
     if (stepIndex !== lastStep) {
       storyStep.textContent = step[0]
       storyText.textContent = step[1]
@@ -326,7 +486,110 @@ export function initLabUI(content, sceneApi) {
     }
   })
 
+  document.addEventListener('keydown', (event) => {
+    if (event.target.closest('input, textarea, dialog')) return
+    if (state.view === 'internals' && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+      event.preventDefault()
+      setChapter(state.chapter + (event.key === 'ArrowRight' ? 1 : -1))
+    }
+    if (event.key === ' ') {
+      event.preventDefault()
+      setPaused(!state.paused)
+    }
+  })
+
+  /* ---------- deep links ----------
+     #files/store            a substrate and an operation in the system view
+     #files/inside/grep      a substrate and a chapter in the internals view
+     Lets any chapter be linked to directly, and survives a reload. */
+
+  function writeHash() {
+    const next = state.view === 'internals'
+      ? `#${state.store}/inside/${currentChapter().id}`
+      : `#${state.store}/${state.phase}`
+    if (location.hash !== next) history.replaceState(null, '', next)
+  }
+
+  function applyHash() {
+    const raw = location.hash.replace(/^#\/?/, '')
+    if (!raw) return false
+    const [storeId, second, third] = raw.split('/')
+    if (!stores.some((store) => store.id === storeId)) return false
+    state.store = storeId
+    state.chapter = 0
+    sceneApi.setStore(storeId)
+    if (second === 'inside') {
+      const chapters = internalsById[storeId].chapters
+      const index = Math.max(0, chapters.findIndex((chapter) => chapter.id === third))
+      state.view = 'internals'
+      state.chapter = index
+      sceneApi.setMode('internals')
+      sceneApi.setChapter(index)
+    } else {
+      state.view = 'system'
+      if (PHASE_COPY[second]) {
+        state.phase = second
+        sceneApi.setPhase(second)
+      }
+      sceneApi.setMode('system')
+    }
+    lastStep = -1
+    renderChapterRail()
+    applyViewChrome()
+    scheduleSafeArea()
+    return true
+  }
+
+  window.addEventListener('hashchange', () => {
+    if (applyHash()) render()
+  })
+
+  /* ---------- safe area ----------
+     Controls float over the canvas, so the scene needs to know which band of
+     it is actually clear. Measuring the live DOM keeps that correct at every
+     breakpoint instead of encoding control heights in two places. */
+
+  const canvas = document.getElementById('lab-canvas')
+  const overlays = [
+    document.querySelector('.view-switch'),
+    document.getElementById('phase-buttons'),
+    chapterRail,
+    document.querySelector('.story-strip'),
+    document.querySelector('.store-dock'),
+    learningPanel,
+  ].filter(Boolean)
+
+  function publishSafeArea() {
+    const frame = canvas.getBoundingClientRect()
+    if (!frame.height) return
+    const middle = frame.top + frame.height / 2
+    let top = 12
+    let bottom = 12
+    for (const element of overlays) {
+      if (element.hidden || !element.offsetParent) continue
+      const box = element.getBoundingClientRect()
+      if (!box.height || box.bottom < frame.top || box.top > frame.bottom) continue
+      // Only chrome that actually sits over the canvas counts.
+      if (box.right < frame.left + 4 || box.left > frame.right - 4) continue
+      if (box.top + box.height / 2 < middle) top = Math.max(top, box.bottom - frame.top + 14)
+      else bottom = Math.max(bottom, frame.bottom - box.top + 14)
+    }
+    sceneApi.setSafeArea({ top, bottom, side: 18 })
+  }
+
+  const scheduleSafeArea = () => requestAnimationFrame(publishSafeArea)
+  window.addEventListener('resize', scheduleSafeArea)
+  if (window.ResizeObserver) {
+    const observer = new ResizeObserver(scheduleSafeArea)
+    overlays.forEach((element) => observer.observe(element))
+    observer.observe(canvas)
+  }
+
   initReference(content)
+  renderChapterRail()
+  applyHash()
+  applyViewChrome()
   sceneApi.setDetail(4)
   render()
+  scheduleSafeArea()
 }

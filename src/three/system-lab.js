@@ -10,6 +10,7 @@ import {
   reducedMotion,
 } from './lib.js'
 import { MEMORY_VIEWS } from './explorer.js'
+import { INTERNAL_CHAPTERS, INTERNAL_VIEWS, STAGE as INTERNAL_STAGE } from './internals.js'
 
 const PHASE_COLORS = {
   store: COL.amber,
@@ -23,6 +24,10 @@ const STORE_TITLES = {
   vector: 'VECTOR STORE · SEMANTIC RECALL',
   graph: 'KNOWLEDGE GRAPH · RELATIONSHIPS + TIME',
 }
+
+// Bounding box of the system diagram, used to frame the camera. The slight
+// elevation keeps the diagram reading as a scene rather than a flat chart.
+const SYSTEM_STAGE = { w: 13.9, h: 7.8, cx: -0.35, cy: -0.62, elevation: 0.55 }
 
 const IMPACT_AT = { store: 0.44, retrieve: 0.32, maintain: 0.44 }
 const RETRIEVE_RELEASE_AT = 0.71
@@ -164,535 +169,11 @@ function makeMemoryChamber() {
   return group
 }
 
-function textBar(width, y, color = 0x8d96a4, opacity = 0.7) {
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, 0.055),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity })
-  )
-  mesh.position.set(-1.55 + width / 2, y, 0.07)
-  return mesh
-}
-
-class FilesStore {
-  constructor() {
-    this.group = new THREE.Group()
-    this.group.position.set(-0.7, -0.18, 0.27)
-    this.group.scale.setScalar(1.28)
-    this.phase = 'store'
-    this.detail = 1
-    this.lines = []
-    this.labels = new THREE.Group()
-    this.impl = new THREE.Group()
-
-    for (let i = 2; i >= 0; i -= 1) {
-      const page = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.65, 1.55),
-        new THREE.MeshBasicMaterial({ color: i === 0 ? 0xffffff : 0xeeeae1, transparent: true, opacity: i === 0 ? 1 : 0.8 })
-      )
-      page.position.set(-0.75 + i * 0.14, -0.06 + i * 0.1, -i * 0.08)
-      page.rotation.z = (i - 1) * 0.025
-      const edge = new THREE.LineSegments(
-        new THREE.EdgesGeometry(page.geometry),
-        new THREE.LineBasicMaterial({ color: i === 0 ? COL.amberDim : COL.line, transparent: true, opacity: 0.62 })
-      )
-      edge.position.copy(page.position)
-      edge.rotation.copy(page.rotation)
-      this.group.add(page, edge)
-    }
-
-    const widths = [1.2, 1.82, 1.45, 1.96, 1.66, 1.32]
-    widths.forEach((w, i) => {
-      const bar = textBar(w, 0.48 - i * 0.19, i === 1 ? COL.amber : 0x8d96a4, i === 1 ? 1 : 0.64)
-      bar.position.x -= 0.75
-      bar.userData.baseX = bar.position.x
-      bar.userData.width = w
-      this.group.add(bar)
-      this.lines.push(bar)
-    })
-    const fileLabel = makeLabel('memory/maya.md', { color: '#475467', size: 0.24 })
-    fileLabel.position.set(1.3, 0.45, 0.1)
-    const factLabel = makeLabel('m1 · semantic', { color: '#d66f28', size: 0.2 })
-    factLabel.position.set(1.25, 0.05, 0.1)
-    this.factLabel = factLabel
-    const accessLabel = makeLabel('load → grep → read', { color: '#177a9b', size: 0.19 })
-    accessLabel.position.set(1.28, -0.31, 0.1)
-    this.labels.add(fileLabel, factLabel, accessLabel)
-
-    const tokens = ['UTF-8', 'git diff', 'no index']
-    tokens.forEach((text, i) => {
-      const label = makeLabel(text, { color: '#7a8290', size: 0.16, bg: '#fffdf8' })
-      label.position.set(0.75 + i * 0.85, -0.72, 0.12)
-      this.impl.add(label)
-    })
-    this.scan = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.5, 0.11),
-      new THREE.MeshBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0 })
-    )
-    this.scan.position.set(-0.75, 0.58, 0.15)
-    this.replacement = textBar(1.72, 0.24, COL.violet, 0)
-    this.replacement.position.x -= 0.75
-    this.replacement.userData.baseX = this.replacement.position.x
-    this.replacement.userData.width = 1.72
-    this.group.add(this.scan, this.replacement, this.labels, this.impl)
-    this.setState('store', 1)
-  }
-
-  setState(phase, detail) {
-    this.phase = phase
-    this.detail = detail
-    this.labels.visible = detail >= 3
-    this.impl.visible = detail >= 4
-    this.lines.forEach((line, i) => {
-      line.material.color.set(i === 1 ? (phase === 'maintain' ? COL.red : PHASE_COLORS[phase]) : 0x8d96a4)
-      line.material.opacity = detail >= 3 ? (i === 1 ? 1 : 0.64) : 0.34
-    })
-    this.replacement.material.opacity = 0
-    this.replacement.scale.x = 0.001
-  }
-
-  update(t, progress) {
-    this.group.rotation.y = Math.sin(t * 0.45) * 0.035
-    const hit = IMPACT_AT[this.phase]
-    const entry = this.lines[1]
-    const reveal = revealBetween(progress, hit, hit + 0.09)
-
-    if (this.phase === 'store') {
-      entry.scale.x = Math.max(0.001, reveal)
-      entry.position.x = entry.userData.baseX - entry.userData.width * (1 - reveal) * 0.5
-      entry.material.opacity = reveal
-      this.factLabel.material.opacity = reveal
-      this.scan.material.opacity = 0
-    }
-
-    if (this.phase === 'retrieve') {
-      entry.scale.x = 1
-      entry.position.x = entry.userData.baseX
-      this.factLabel.material.opacity = 1
-      const scanProgress = revealBetween(progress, hit - 0.06, hit + 0.12)
-      this.scan.material.opacity = progress >= hit - 0.06 && progress < 0.78 ? 0.2 : 0
-      this.scan.position.y = 0.58 - scanProgress * 1.12
-      this.lines.forEach((line, i) => {
-        const selected = [0, 1, 3, 4].includes(i) && progress >= hit
-        line.material.color.set(selected ? COL.cyan : (i === 1 ? COL.amber : 0x8d96a4))
-      })
-    }
-
-    if (this.phase === 'maintain') {
-      entry.scale.x = 1 - reveal * 0.76
-      entry.position.x = entry.userData.baseX - entry.userData.width * reveal * 0.38
-      entry.material.color.set(COL.red)
-      entry.material.opacity = 1 - reveal * 0.5
-      this.factLabel.material.color.set(COL.red)
-      const replacement = revealBetween(progress, hit + 0.04, hit + 0.13)
-      this.replacement.scale.x = Math.max(0.001, replacement)
-      this.replacement.position.x = this.replacement.userData.baseX - this.replacement.userData.width * (1 - replacement) * 0.5
-      this.replacement.material.opacity = replacement
-      this.scan.material.opacity = 0
-    } else {
-      this.factLabel.material.color.set(COL.amber)
-    }
-  }
-}
-
-class SqliteStore {
-  constructor() {
-    this.group = new THREE.Group()
-    this.group.position.set(0, -0.12, 0.27)
-    this.group.scale.setScalar(1.25)
-    this.rows = []
-    this.rowLabels = []
-    this.labels = new THREE.Group()
-    this.impl = new THREE.Group()
-    this.phase = 'store'
-    this.detail = 1
-
-    const table = new THREE.Mesh(
-      new THREE.BoxGeometry(5.05, 1.95, 0.2),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.96 })
-    )
-    const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(table.geometry),
-      new THREE.LineBasicMaterial({ color: COL.amberDim, transparent: true, opacity: 0.6 })
-    )
-    this.group.add(table, edges)
-    for (let i = 0; i < 5; i += 1) {
-      const row = new THREE.Mesh(
-        new THREE.BoxGeometry(4.72, 0.23, 0.08),
-        new THREE.MeshBasicMaterial({ color: i === 0 ? 0xf4d9c2 : i === 4 ? 0xe5d9f3 : 0xe8ebef, transparent: true, opacity: 0.92 })
-      )
-      row.position.set(0, 0.58 - i * 0.31, 0.17)
-      this.group.add(row)
-      this.rows.push(row)
-    }
-    const heads = ['id', 'type', 'subject', 'text', 'superseded_by']
-    heads.forEach((text, i) => {
-      const label = makeLabel(text, { color: '#7a8290', size: 0.14 })
-      label.position.set(-1.95 + i * 0.94, 0.9, 0.22)
-      this.labels.add(label)
-    })
-    const rowLabels = ['m1 · semantic · maya · peanut allergy', 'm2 · episodic · maya · Luna 19:00', 'm3 · semantic · maya · partner: Sam', 'm4 · procedural · maya · check menu', 'm5 · episodic · maya · relationship ended']
-    rowLabels.forEach((text, i) => {
-      const label = makeLabel(text, { color: i === 0 ? '#d66f28' : i === 4 ? '#7254a3' : '#475467', size: 0.16 })
-      label.position.set(-0.72, 0.58 - i * 0.31, 0.28)
-      this.labels.add(label)
-      this.rowLabels.push(label)
-    })
-    const indexLabel = makeLabel('B-tree index → subject, created_at', { color: '#177a9b', size: 0.17, bg: '#fffdf8' })
-    indexLabel.position.set(1.2, -1.08, 0.15)
-    const guarantee = makeLabel('WHERE superseded_by IS NULL', { color: '#7254a3', size: 0.16, bg: '#fffdf8' })
-    guarantee.position.set(-1.35, -1.08, 0.15)
-    this.impl.add(indexLabel, guarantee)
-    this.group.add(this.labels, this.impl)
-    this.setState('store', 1)
-  }
-
-  setState(phase, detail) {
-    this.phase = phase
-    this.detail = detail
-    this.labels.visible = detail >= 3
-    this.impl.visible = detail >= 4
-    this.rows.forEach((row, i) => {
-      let color = i === 0 ? 0xf4d9c2 : i === 4 ? 0xe5d9f3 : 0xe8ebef
-      if (phase === 'retrieve' && [0, 1, 3].includes(i)) color = 0xcbe8f1
-      if (phase === 'maintain' && i === 2) color = 0xf2cdd2
-      row.material.color.set(color)
-      row.material.opacity = detail >= 3 ? 0.94 : 0.5
-    })
-  }
-
-  update(t, progress) {
-    const hit = IMPACT_AT[this.phase]
-    const reveal = revealBetween(progress, hit, hit + 0.09)
-    const m1 = this.rows[0]
-    const m5 = this.rows[4]
-
-    this.rows.forEach((row) => {
-      row.position.z = 0.17
-      row.position.x = 0
-      row.scale.x = 1
-    })
-    this.rowLabels.forEach((label) => { label.material.opacity = 1 })
-
-    if (this.phase === 'store') {
-      m1.scale.x = Math.max(0.001, reveal)
-      m1.position.x = -2.36 * (1 - reveal)
-      m1.material.opacity = reveal
-      this.rowLabels[0].material.opacity = reveal
-      m5.visible = false
-      this.rowLabels[4].visible = false
-    }
-
-    if (this.phase === 'retrieve') {
-      m5.visible = false
-      this.rowLabels[4].visible = false
-      if (progress >= hit) {
-        ;[0, 1, 3].forEach((i) => {
-          this.rows[i].material.color.set(0xcbe8f1)
-          this.rows[i].position.z = 0.25 + Math.sin(t * 4 + i) * 0.015
-        })
-      }
-    }
-
-    if (this.phase === 'maintain') {
-      m5.visible = true
-      this.rowLabels[4].visible = true
-      m5.scale.x = Math.max(0.001, reveal)
-      m5.position.x = -2.36 * (1 - reveal)
-      m5.material.opacity = reveal
-      this.rowLabels[4].material.opacity = reveal
-      const old = this.rows[2]
-      old.material.color.set(progress >= hit ? COL.red : 0xe8ebef)
-      old.material.opacity = 0.92 - reveal * 0.48
-      old.position.z = progress >= hit ? 0.25 : 0.17
-    }
-  }
-}
-
 function seeded(index) {
   const value = Math.sin(index * 9187.13 + 0.731) * 43758.5453
   return value - Math.floor(value)
 }
 
-class VectorStore {
-  constructor() {
-    this.group = new THREE.Group()
-    this.group.position.set(0, -0.12, 0.28)
-    this.group.scale.setScalar(1.36)
-    this.phase = 'store'
-    this.detail = 1
-    this.labels = new THREE.Group()
-    this.impl = new THREE.Group()
-
-    const positions = []
-    for (let i = 0; i < 100; i += 1) {
-      const cluster = i % 4
-      const cx = [-1.55, -0.35, 0.9, 1.65][cluster]
-      const cy = [0.3, -0.25, 0.35, -0.4][cluster]
-      positions.push(
-        cx + (seeded(i * 3) - 0.5) * 1.2,
-        cy + (seeded(i * 3 + 1) - 0.5) * 0.85,
-        (seeded(i * 3 + 2) - 0.5) * 0.42
-      )
-    }
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-    this.points = new THREE.Points(geometry, new THREE.PointsMaterial({
-      color: COL.grey,
-      size: 0.105,
-      map: dotTexture(),
-      transparent: true,
-      opacity: 0.65,
-      depthWrite: false,
-      blending: THREE.NormalBlending,
-    }))
-    this.group.add(this.points)
-
-    this.highlights = [
-      [-1.55, 0.32, 0.18],
-      [-0.35, -0.12, 0.2],
-      [0.92, 0.42, 0.12],
-    ].map((p, i) => {
-      const node = makePacket(i === 0 ? COL.amber : COL.cyan, 0.33)
-      node.userData.glow.material.blending = THREE.NormalBlending
-      node.userData.glow.material.opacity = 0.28
-      node.position.set(...p)
-      this.group.add(node)
-      return node
-    })
-    this.newPoint = makePacket(COL.violet, 0.35)
-    this.newPoint.userData.glow.material.blending = THREE.NormalBlending
-    this.newPoint.userData.glow.material.opacity = 0.28
-    this.newPoint.position.set(-1.1, 0.02, 0.24)
-    this.group.add(this.newPoint)
-    this.query = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.88, 2)),
-      new THREE.LineBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0.45 })
-    )
-    this.query.position.set(-0.2, 0.05, 0)
-    this.group.add(this.query)
-
-    const labels = [
-      ['m1 · allergy · 0.69', -1.55, 0.68],
-      ['m2 · Luna · 0.81', -0.25, -0.55],
-      ['m4 · menu check · 0.74', 1.2, 0.78],
-    ]
-    labels.forEach(([text, x, y]) => {
-      const label = makeLabel(text, { color: '#475467', size: 0.16, bg: '#fffdf8' })
-      label.position.set(x, y, 0.32)
-      this.labels.add(label)
-    })
-
-    const hnswLines = [
-      [[-2.1,-.2,0],[-.8,.3,0]], [[-.8,.3,0],[.2,-.4,0]], [[.2,-.4,0],[1.45,.35,0]],
-      [[-1.6,.6,0],[-.1,.55,0]], [[-.1,.55,0],[1.2,.6,0]], [[-.8,-.55,0],[.8,-.5,0]],
-    ]
-    hnswLines.forEach((points) => this.impl.add(lineFrom(points, COL.violet, 0.23)))
-    const hnswLabel = makeLabel('HNSW · approximate nearest neighbours', { color: '#7254a3', size: 0.16, bg: '#fffdf8' })
-    hnswLabel.position.set(1.2, -0.85, 0.22)
-    this.impl.add(hnswLabel)
-    this.group.add(this.labels, this.impl)
-    this.setState('store', 1)
-  }
-
-  setState(phase, detail) {
-    this.phase = phase
-    this.detail = detail
-    this.labels.visible = detail >= 3
-    this.impl.visible = detail >= 4
-    this.query.visible = phase === 'retrieve' && detail >= 3
-    this.points.material.opacity = detail >= 3 ? 0.68 : 0.34
-    this.highlights.forEach((node, i) => {
-      node.visible = detail >= 2
-      const color = phase === 'maintain' && i === 0 ? COL.red : phase === 'store' && i === 0 ? COL.amber : COL.cyan
-      node.userData.core.material.color.set(color)
-      node.userData.glow.material.color.set(color)
-    })
-    this.newPoint.visible = false
-  }
-
-  update(t, progress) {
-    this.group.rotation.y = Math.sin(t * 0.26) * 0.12
-    this.query.rotation.x = t * 0.2
-    this.query.rotation.y = t * 0.28
-    const hit = IMPACT_AT[this.phase]
-    const reveal = revealBetween(progress, hit, hit + 0.09)
-    const pulse = 0.92 + Math.sin(t * 2.4) * 0.09
-
-    if (this.phase === 'store') {
-      this.query.visible = false
-      this.highlights[0].visible = reveal > 0
-      this.highlights[0].scale.setScalar(Math.max(0.01, reveal) * (1 + Math.sin(t * 5) * 0.05))
-      this.highlights[1].visible = true
-      this.highlights[2].visible = true
-      this.highlights[1].scale.setScalar(1)
-      this.highlights[2].scale.setScalar(1)
-      this.newPoint.visible = false
-      this.labels.children[0].material.opacity = reveal
-    }
-
-    if (this.phase === 'retrieve') {
-      const queryReveal = revealBetween(progress, hit - 0.08, hit + 0.04)
-      this.query.visible = queryReveal > 0
-      this.query.scale.setScalar(Math.max(0.01, queryReveal) * pulse)
-      this.query.material.opacity = 0.12 + queryReveal * 0.36
-      this.highlights.forEach((node, i) => {
-        node.visible = true
-        node.scale.setScalar(progress >= hit ? 1 + Math.sin(t * 4 + i) * 0.08 : 0.68)
-        node.userData.glow.material.opacity = progress >= hit ? 0.34 : 0.12
-      })
-      this.newPoint.visible = false
-      this.labels.children.forEach((label) => { label.material.opacity = progress >= hit ? 1 : 0.28 })
-    }
-
-    if (this.phase === 'maintain') {
-      this.query.visible = false
-      this.highlights[0].visible = true
-      this.highlights[0].scale.setScalar(1 - reveal * 0.72)
-      this.highlights[0].userData.core.material.color.set(COL.red)
-      this.highlights[0].userData.glow.material.color.set(COL.red)
-      this.newPoint.visible = reveal > 0
-      this.newPoint.scale.setScalar(Math.max(0.01, reveal))
-      this.highlights[1].visible = true
-      this.highlights[2].visible = true
-      this.highlights[1].scale.setScalar(1)
-      this.highlights[2].scale.setScalar(1)
-      this.labels.children[0].material.opacity = 1 - reveal * 0.65
-    }
-  }
-}
-
-class GraphStore {
-  constructor() {
-    this.group = new THREE.Group()
-    this.group.position.set(0, -0.08, 0.28)
-    this.group.scale.setScalar(1.34)
-    this.phase = 'store'
-    this.detail = 1
-    this.nodes = {}
-    this.nodeLabels = {}
-    this.edges = {}
-    this.labels = new THREE.Group()
-    this.impl = new THREE.Group()
-    const defs = {
-      maya: [-1.25, 0.15, 0.1],
-      peanuts: [0.15, 0.68, 0],
-      luna: [0.38, -0.45, 0.08],
-      sam: [-0.55, -0.72, 0],
-      italian: [1.68, -0.35, -0.04],
-      episode: [-2.15, 0.67, -0.12],
-      rule: [1.65, 0.58, 0.02],
-    }
-    for (const [id, pos] of Object.entries(defs)) {
-      const node = new THREE.Group()
-      const sphere = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(id === 'maya' ? 0.2 : 0.14, 2),
-        new THREE.MeshBasicMaterial({ color: id === 'maya' ? COL.amber : 0x758092, transparent: true, opacity: 0.9 })
-      )
-      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTexture(), color: id === 'maya' ? COL.amber : COL.grey, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.NormalBlending }))
-      glow.scale.set(id === 'maya' ? 0.9 : 0.6, id === 'maya' ? 0.9 : 0.6, 1)
-      node.position.set(...pos)
-      node.add(glow, sphere)
-      node.userData = { sphere, glow, baseY: pos[1] }
-      this.nodes[id] = node
-      this.group.add(node)
-      const label = makeLabel(id === 'episode' ? 'episode_017' : id[0].toUpperCase() + id.slice(1), { color: id === 'maya' ? '#d66f28' : '#475467', size: 0.16, bg: '#fffdf8' })
-      label.position.set(pos[0], pos[1] + 0.31, 0.23)
-      this.labels.add(label)
-      this.nodeLabels[id] = label
-    }
-    const edgeDefs = {
-      allergy: ['maya', 'peanuts', 'ALLERGIC_TO'],
-      booked: ['maya', 'luna', 'BOOKED'],
-      partner: ['maya', 'sam', 'PARTNER'],
-      cuisine: ['luna', 'italian', 'CUISINE'],
-      source: ['episode', 'maya', 'MENTIONS'],
-      avoids: ['rule', 'peanuts', 'CHECK_MENU_FOR'],
-    }
-    for (const [id, [a, b, relation]] of Object.entries(edgeDefs)) {
-      const line = lineFrom([defs[a], defs[b]], 0x929baa, 0.7)
-      this.edges[id] = line
-      this.group.add(line)
-      const mid = new THREE.Vector3(...defs[a]).lerp(new THREE.Vector3(...defs[b]), 0.5)
-      const label = makeLabel(relation, { color: '#7a8290', size: 0.12 })
-      label.position.copy(mid).add(new THREE.Vector3(0, 0.1, 0.15))
-      label.userData.edgeName = id
-      this.impl.add(label)
-    }
-    const temporal = makeLabel('valid_from · invalid_at · source', { color: '#7254a3', size: 0.16, bg: '#fffdf8' })
-    temporal.position.set(1.15, -0.88, 0.2)
-    this.impl.add(temporal)
-    this.group.add(this.labels, this.impl)
-    this.setState('store', 1)
-  }
-
-  setState(phase, detail) {
-    this.phase = phase
-    this.detail = detail
-    this.labels.visible = detail >= 3
-    this.impl.visible = detail >= 4
-    for (const [id, line] of Object.entries(this.edges)) {
-      let color = 0x929baa
-      let opacity = detail >= 3 ? 0.72 : 0.34
-      if (phase === 'retrieve' && ['allergy', 'booked', 'cuisine', 'avoids'].includes(id)) { color = COL.cyan; opacity = 0.92 }
-      if (phase === 'maintain' && id === 'partner') { color = COL.red; opacity = 0.95 }
-      if (phase === 'store' && id === 'allergy') { color = COL.amber; opacity = 1 }
-      line.material.color.set(color)
-      line.material.opacity = opacity
-    }
-  }
-
-  update(t, progress) {
-    this.group.rotation.y = Math.sin(t * 0.25) * 0.08
-    const hit = IMPACT_AT[this.phase]
-    const reveal = revealBetween(progress, hit, hit + 0.1)
-    for (const [id, node] of Object.entries(this.nodes)) {
-      node.position.y = node.userData.baseY + Math.sin(t * 0.8 + node.position.x * 2.1) * 0.025
-      node.scale.setScalar(1)
-      node.userData.glow.material.color.set(id === 'maya' ? COL.amber : COL.grey)
-      node.userData.glow.material.opacity = id === 'maya' ? 0.22 : 0.12
-      this.nodeLabels[id].material.opacity = 1
-    }
-
-    if (this.phase === 'store') {
-      const edge = this.edges.allergy
-      edge.visible = reveal > 0
-      edge.material.color.set(COL.amber)
-      edge.material.opacity = reveal
-      this.nodes.peanuts.scale.setScalar(0.78 + reveal * 0.22)
-      this.nodes.peanuts.userData.glow.material.opacity = 0.08 + reveal * 0.22
-      this.impl.children.forEach((label) => {
-        if (label.userData.edgeName === 'allergy') label.material.opacity = reveal
-      })
-    }
-
-    if (this.phase === 'retrieve') {
-      for (const [id, edge] of Object.entries(this.edges)) {
-        edge.visible = true
-        const selected = ['allergy', 'booked', 'cuisine', 'avoids'].includes(id) && progress >= hit
-        edge.material.color.set(selected ? COL.cyan : 0x929baa)
-        edge.material.opacity = selected ? 0.95 : 0.42
-      }
-      if (progress >= hit) {
-        ;['maya', 'peanuts', 'luna', 'italian', 'rule'].forEach((id) => {
-          this.nodes[id].userData.glow.material.color.set(COL.cyan)
-          this.nodes[id].userData.glow.material.opacity = 0.22 + Math.sin(t * 4 + id.length) * 0.05
-        })
-      }
-    }
-
-    if (this.phase === 'maintain') {
-      for (const edge of Object.values(this.edges)) edge.visible = true
-      const partner = this.edges.partner
-      partner.material.color.set(progress >= hit ? COL.red : 0x929baa)
-      partner.material.opacity = progress >= hit ? 0.95 - reveal * 0.65 : 0.7
-      this.nodes.sam.userData.glow.material.color.set(progress >= hit ? COL.red : COL.grey)
-      this.nodes.sam.userData.glow.material.opacity = 0.12 + reveal * 0.16
-      this.nodeLabels.sam.material.opacity = 1 - reveal * 0.35
-    }
-  }
-}
-
-const STORE_VIEWS = { files: FilesStore, sqlite: SqliteStore, vector: VectorStore, graph: GraphStore }
 
 const EMBEDDED_LAYOUT = {
   files: {
@@ -741,7 +222,13 @@ export function initSystemLab(canvas) {
   const stage = createStage(canvas, { fov: 43, z: 16 })
   const { renderer, scene, camera } = stage
   renderer.outputColorSpace = THREE.SRGBColorSpace
+  // Depth haze, kept relative to the camera. A fixed range would swallow the
+  // whole scene whenever the camera pulls back to fit a tall, narrow viewport.
   scene.fog = new THREE.Fog(COL.bg, 15, 30)
+  function updateFog() {
+    scene.fog.near = Math.max(0.1, camera.position.z - 1.5)
+    scene.fog.far = camera.position.z + 15
+  }
   camera.position.set(0, 1.0, 16)
   camera.lookAt(0, -0.15, 0)
 
@@ -787,7 +274,7 @@ export function initSystemLab(canvas) {
   })
   root.add(detailSystem)
 
-  let state = { store: 'files', phase: 'store', detail: 4, paused: false }
+  let state = { store: 'files', phase: 'store', detail: 4, paused: false, mode: 'system', chapter: 0 }
   let storeView = null
   let routeGroup = null
   let routeCurve = null
@@ -797,6 +284,27 @@ export function initSystemLab(canvas) {
   let elapsed = 0
   const cycle = 10.2
   let progressCallback = () => {}
+
+  /* ---------- internals ("inside the store") layer ---------- */
+
+  const internalsRoot = new THREE.Group()
+  internalsRoot.visible = false
+  scene.add(internalsRoot)
+  let internalView = null
+  let chapterElapsed = 0
+  const CHAPTER_RUN = 9.0
+  const CHAPTER_HOLD = 2.6
+  const chapterCycle = CHAPTER_RUN + CHAPTER_HOLD
+
+  function chapterIds() { return INTERNAL_CHAPTERS[state.store] ?? [] }
+  function chapterId() { return chapterIds()[state.chapter] ?? chapterIds()[0] }
+
+  function buildInternals() {
+    if (internalView) internalView.dispose()
+    internalView = new INTERNAL_VIEWS[state.store](internalsRoot)
+    internalView.setChapter(chapterId())
+    chapterElapsed = reducedMotion ? CHAPTER_RUN : 0
+  }
 
   function replaceStore(id, { updateTitle = true, resetElapsed = true } = {}) {
     if (storeView) {
@@ -908,6 +416,13 @@ export function initSystemLab(canvas) {
     state.store = id
     replaceStore(id)
     replaceRoute()
+    if (state.mode === 'internals') {
+      state.chapter = 0
+      buildInternals()
+    } else if (internalView) {
+      internalView.dispose()
+      internalView = null
+    }
   }
 
   function setPhase(phase) {
@@ -923,15 +438,61 @@ export function initSystemLab(canvas) {
     applyDetail()
   }
 
+  function setMode(mode) {
+    const next = mode === 'internals' ? 'internals' : 'system'
+    if (state.mode === next) return
+    state.mode = next
+    snapCamera = true
+    if (next === 'internals') {
+      buildInternals()
+      internalsRoot.visible = true
+      root.visible = false
+    } else {
+      internalsRoot.visible = false
+      root.visible = true
+      elapsed = reducedMotion ? cycle * 0.78 : 0
+      replaceStore(state.store, { updateTitle: false })
+    }
+  }
+
+  function setChapter(index) {
+    const ids = chapterIds()
+    if (!ids.length) return
+    const next = ((index % ids.length) + ids.length) % ids.length
+    state.chapter = next
+    if (state.mode === 'internals') {
+      if (!internalView) buildInternals()
+      else {
+        internalView.setChapter(chapterId())
+        chapterElapsed = reducedMotion ? CHAPTER_RUN : 0
+      }
+    }
+  }
+
+  function stepChapter(delta) { setChapter(state.chapter + delta) }
+
   function setPaused(paused) { state.paused = paused }
+
   function seek(progress) {
     const targetProgress = THREE.MathUtils.clamp(progress, 0, 0.999)
+    if (state.mode === 'internals') {
+      chapterElapsed = targetProgress * CHAPTER_RUN
+      return
+    }
     replaceStore(state.store, { updateTitle: false, resetElapsed: false })
     elapsed = targetProgress * cycle
     const localSeconds = Math.max(0, elapsed - IMPACT_AT[state.phase] * cycle) * 1.12
     if (storeTimeline && localSeconds > 0) storeTimeline.update(localSeconds)
   }
-  function restart() { replaceStore(state.store, { updateTitle: false }) }
+
+  function restart() {
+    if (state.mode === 'internals') {
+      chapterElapsed = reducedMotion ? CHAPTER_RUN : 0
+      return
+    }
+    replaceStore(state.store, { updateTitle: false })
+  }
+
   function onProgress(callback) { progressCallback = callback || (() => {}) }
 
   replaceStore('files')
@@ -985,14 +546,101 @@ export function initSystemLab(canvas) {
     orbit.targetPitch = 0
   }
 
+  /* The canvas runs edge to edge, but fixed chrome sits over the top and
+     bottom of it. Fitting a scene to the raw canvas would tuck content
+     underneath that chrome, so every scene is fitted to the clear band
+     between them. The UI layer measures that band from the live DOM and
+     pushes it in here, which keeps the fit correct across every breakpoint
+     rather than depending on hardcoded control heights. */
+  // Framing eases while the viewport settles, but must be correct on the
+  // very first painted frame and immediately after a view switch.
+  let snapCamera = true
+  let safeArea = { top: 104, bottom: 104, side: 18 }
+
+  function setSafeArea(next) {
+    const updated = {
+      top: Math.max(0, next?.top ?? safeArea.top),
+      bottom: Math.max(0, next?.bottom ?? safeArea.bottom),
+      side: Math.max(0, next?.side ?? safeArea.side),
+    }
+    const changed = updated.top !== safeArea.top
+      || updated.bottom !== safeArea.bottom
+      || updated.side !== safeArea.side
+    safeArea = updated
+    // The band moves on discrete events (load, resize, view switch), so
+    // re-frame at once rather than easing across a visible drift.
+    if (changed) snapCamera = true
+  }
+
+  function fitCamera(box) {
+    const height = canvas.clientHeight || 1
+    const width = canvas.clientWidth || 1
+    const usableHeight = Math.max(140, height - safeArea.top - safeArea.bottom)
+    const usableWidth = Math.max(140, width - safeArea.side * 2)
+    const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+    // Blow the box up by the ratio of full canvas to safe band, so the box
+    // itself lands inside the band once the whole canvas is filled.
+    const neededHeight = box.h * (height / usableHeight)
+    const neededWidth = box.w * (width / usableWidth)
+    const zForHeight = neededHeight / 2 / tanHalfFov
+    const zForWidth = neededWidth / 2 / (tanHalfFov * Math.max(camera.aspect, 0.35))
+    const z = Math.max(zForHeight, zForWidth)
+    // Recentre on the safe band when the chrome is lopsided.
+    const visibleHeight = 2 * z * tanHalfFov
+    const bandCentre = safeArea.top + usableHeight / 2
+    const offsetY = ((bandCentre - height / 2) / height) * visibleHeight
+    return { z, offsetY }
+  }
+
   const timer = new THREE.Timer()
   timer.connect(document)
+  function frameInternals(dt, t) {
+    if (!state.paused && !reducedMotion) {
+      chapterElapsed += dt
+      if (chapterElapsed >= chapterCycle) chapterElapsed = 0
+    }
+    const p = THREE.MathUtils.clamp(chapterElapsed / CHAPTER_RUN, 0, 1)
+    // Freeze the idle-motion clock under reduced motion: the chapter still
+    // shows its finished state, it just stops breathing.
+    if (internalView) internalView.render(p, reducedMotion ? 0 : t)
+
+    const ids = chapterIds()
+    progressCallback({
+      // The scrubber tracks the chapter's own progress; the hold that
+      // follows it simply parks the playhead at the end.
+      mode: 'internals',
+      progress: p,
+      seconds: Math.min(Math.floor(chapterElapsed), Math.round(CHAPTER_RUN)),
+      chapterIndex: state.chapter,
+      chapterId: chapterId(),
+      chapterCount: ids.length,
+    })
+
+    const fit = fitCamera(INTERNAL_STAGE)
+    const ease = snapCamera ? 1 : 0.06
+    snapCamera = false
+    camera.position.z += (fit.z - camera.position.z) * ease
+    camera.position.x += (INTERNAL_STAGE.cx - camera.position.x) * ease
+    camera.position.y += (INTERNAL_STAGE.cy + fit.offsetY - camera.position.y) * ease
+    orbit.yaw += (orbit.targetYaw - orbit.yaw) * 0.12
+    orbit.pitch += (orbit.targetPitch - orbit.pitch) * 0.12
+    internalsRoot.rotation.y = orbit.yaw * 0.5
+    internalsRoot.rotation.x = orbit.pitch * 0.5
+    camera.lookAt(INTERNAL_STAGE.cx, INTERNAL_STAGE.cy + fit.offsetY, 0)
+    updateFog()
+    renderer.render(scene, camera)
+  }
+
   function frame(timestamp) {
     requestAnimationFrame(frame)
     timer.update(timestamp)
     const rawDelta = timer.getDelta()
     const dt = Number.isFinite(rawDelta) ? Math.max(0, Math.min(rawDelta, 0.05)) : 0
     const t = timer.getElapsed()
+    if (state.mode === 'internals') {
+      frameInternals(dt, t)
+      return
+    }
     if (!state.paused && !reducedMotion) {
       elapsed += dt
       if (elapsed >= cycle) replaceStore(state.store, { updateTitle: false })
@@ -1035,44 +683,69 @@ export function initSystemLab(canvas) {
         : state.phase === 'retrieve' && progress < RETRIEVE_RELEASE_AT ? 2
           : progress < 0.82 ? 2 : 3
     progressCallback({
+      mode: 'system',
       progress,
       seconds: Math.floor(elapsed),
       stepIndex,
       step: STORY[state.phase][stepIndex],
     })
 
-    const targetZ = camera.aspect < 1 ? 23 : camera.aspect < 1.35 ? 18.5 : 16
-    camera.position.z += (targetZ - camera.position.z) * 0.045
-    if (!reducedMotion) {
-      camera.position.x += (pointer.x * 0.18 - camera.position.x) * 0.025
-      camera.position.y += (1 - pointer.y * 0.1 - camera.position.y) * 0.025
-      background.rotation.y = t * 0.003
-    }
+    const fit = fitCamera(SYSTEM_STAGE)
+    const focusY = SYSTEM_STAGE.cy + fit.offsetY
+    const driftX = reducedMotion ? 0 : pointer.x * 0.18
+    const driftY = reducedMotion ? 0 : -pointer.y * 0.1
+    const glide = snapCamera ? 1 : 0.045
+    const drift = snapCamera ? 1 : 0.025
+    snapCamera = false
+    camera.position.z += (fit.z - camera.position.z) * glide
+    camera.position.x += (SYSTEM_STAGE.cx + driftX - camera.position.x) * drift
+    camera.position.y += (focusY + SYSTEM_STAGE.elevation + driftY - camera.position.y) * drift
+    if (!reducedMotion) background.rotation.y = t * 0.003
     orbit.yaw += (orbit.targetYaw - orbit.yaw) * 0.12
     orbit.pitch += (orbit.targetPitch - orbit.pitch) * 0.12
     root.rotation.y = orbit.yaw
     root.rotation.x = orbit.pitch
-    camera.lookAt(0, -0.15, 0)
+    camera.lookAt(SYSTEM_STAGE.cx, focusY, 0)
+    updateFog()
     renderer.render(scene, camera)
   }
   requestAnimationFrame(frame)
 
-  return {
+  const api = {
     setStore,
     setPhase,
     setDetail,
+    setMode,
+    setSafeArea,
+    setChapter,
+    stepChapter,
     setPaused,
     seek,
     restart,
     resetView,
     onProgress,
-    getDuration: () => cycle,
+    getDuration: () => (state.mode === 'internals' ? CHAPTER_RUN : cycle),
+    getChapters: (id = state.store) => INTERNAL_CHAPTERS[id] ?? [],
     getState: () => ({ ...state }),
     dispose: () => {
       timer.dispose()
       stage.dispose()
+      if (internalView) internalView.dispose()
+      disposeGroup(internalsRoot)
       disposeGroup(root)
       disposeGroup(background)
     },
   }
+
+  if (import.meta.env?.DEV) {
+    // Handy when tuning scene framing: window.__lab.debug()
+    api.debug = () => ({
+      mode: state.mode,
+      aspect: +camera.aspect.toFixed(3),
+      camera: [camera.position.x, camera.position.y, camera.position.z].map((v) => +v.toFixed(2)),
+      canvas: [canvas.clientWidth, canvas.clientHeight],
+      fit: fitCamera(state.mode === 'internals' ? INTERNAL_STAGE : SYSTEM_STAGE),
+    })
+  }
+  return api
 }

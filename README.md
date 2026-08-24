@@ -2,34 +2,52 @@
 
 An interactive, full-screen 3D lab for **agent memory layers**. One persistent agent
 system stays on screen while you switch its long-term memory between plain files,
-SQLite, a vector store, and a knowledge graph. Trace write, recall, and maintenance
-data flows while the interface keeps both the visual mechanics and implementation
-detail close at hand.
+SQLite, a vector store, and a knowledge graph. Then open any substrate up and watch
+the machinery inside it actually run.
 
 Built with Vite + Three.js. No backend; static output.
 
-## Interaction model
+## Two levels
 
-- **Memory substrate** changes only the highlighted long-term-memory chamber; the
-  surrounding agent architecture stays fixed for direct comparison.
-- **Write / Recall / Maintain** changes the active data route and running Maya story.
+**01 System view - where memory sits in an agent.** The agent topology stays fixed while
+you swap the substrate underneath it, so the comparison is like for like.
+
+- **Memory substrate** changes only the highlighted long-term-memory chamber.
+- **Write / Recall / Maintain** changes the active data route and the running Maya story.
 - Every operation runs as a deterministic loop: one user message produces one moving
   packet; when that packet reaches memory, the file, row, point, or edge visibly
   changes; the finished state pauses before resetting.
-- A single **Overview / Full detail** control changes explanation depth without hiding
-  the visual mechanics. Full detail shows store internals and literal
-  file/SQL/vector/Cypher operations.
+- **Overview / Full detail** changes explanation depth without hiding the visual
+  mechanics.
+
+**02 Inside the store - what the substrate is actually doing.** Each substrate opens into
+an ordered set of chapters, each one a cutaway of a single mechanism, scrubbable frame by
+frame:
+
+| substrate | chapters |
+| --- | --- |
+| Plain files | bytes on disk · the two-tier index · lexical scan · the write path · history for free |
+| SQLite | typed rows · pages · B-tree seek vs full scan · the query planner · transactions and the WAL · supersession chains |
+| Vector store | embedding · normalising onto the sphere · cosine similarity · HNSW traversal · why near is not true · re-embedding |
+| Knowledge graph | triple extraction · entity resolution · two clocks · invalidation · multi-hop traversal · communities |
+
+Every chapter carries one honest failure mode as well as the happy path: the grep that
+never matches, the lost concurrent write, the `SCAN` on a hot path, the true neighbour
+HNSW walks past, the two entities wrongly merged.
+
 - **Field notes** keeps the broader taxonomy, production examples, decision table,
   and cited source library accessible without turning the main experience into a
   scrolling article.
+- Any state is linkable: `#sqlite/inside/btree`, `#graph/retrieve`. Left and right
+  arrows step through chapters; space pauses.
 
 ## Develop
 
 ```bash
 npm install
-npm run dev      # local dev server
-npm run build    # production build → dist/
-node scripts/validate-content.mjs   # content contract check
+npm run dev       # local dev server
+npm run build     # validate content, then production build → dist/
+npm run validate  # content contract check on its own
 ```
 
 ## How it stays current - the self-maintenance loop
@@ -65,4 +83,5 @@ All prose and facts live in `src/content/`:
 | `taxonomy.json` | working / episodic / semantic / procedural |
 | `systems.json` | real systems and *why* they chose their store |
 | `choosing.json` | the decision table |
+| `internals.json` | the "inside the store" chapters: 4 stores x 5-6 mechanisms |
 | `sources.json` | every citation, with `lastVerified` dates |

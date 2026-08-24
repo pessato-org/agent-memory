@@ -20,9 +20,10 @@ tonight: keep the site's content accurate, current, and cited. Nothing else.
 4. **Cited quote discipline:** never paste more than a short phrase from any source;
    paraphrase and cite.
 5. **The pedagogy is stable.** The Maya scenario (m1–m5), the four stores, the three
-   phases, and the three depth levels are the site's spine. Do not alter the scenario,
-   the store lineup, or the inspector code examples unless a claim in them has become
-   factually wrong - and say so explicitly in the PR if you do.
+   phases, the three depth levels, and the internals chapter list are the site's spine.
+   Do not alter the scenario, the store lineup, the chapter ids, or the inspector code
+   examples unless a claim in them has become factually wrong - and say so explicitly
+   in the PR if you do.
 6. **Small diffs win.** A typical night should change under ~150 lines. If you believe a
    larger change is warranted, split it: make the most important part tonight and
    describe the rest in the PR body.
@@ -72,13 +73,24 @@ For anything from step 1 that clears the significance bar:
 - `sources.json`: add sources for anything new you cite, `lastVerified` = today.
 - `site.json` / `taxonomy.json` / `choosing.json` / `stores.json`: value-level accuracy
   edits only, following rule 5.
+- `internals.json`: value-level accuracy edits only. Each chapter's `id` selects a
+  hand-built 3D scene by name, so ids and their order are frozen - you may edit
+  `title`, `html`, `takeaway`, and the `text` of a beat. **Never change a beat's `at`**:
+  it is a progress mark against that chapter's animation, and moving it desynchronises
+  the narration from the scene. If a chapter's prose no longer matches what its scene
+  draws, that is a code change: say so in the PR rather than rewriting around it.
+  Keep `takeaway` under 130 characters and beat text under 110 (both render in the
+  story strip), and remember that these describe substrate mechanics, which move far
+  more slowly than products do.
 - Update `site.json` → `meta.contentUpdated` and the date inside
   `footer.metaMono` to today **only if you changed any content**.
 
 ### 4. Validate
 
-- `node scripts/validate-content.mjs` must pass (JSON parses, required fields present,
-  every `sourceIds` reference resolves, no scheme other than https in URLs).
+- `npm run validate` must pass (JSON parses, required fields present, every
+  `sourceIds` reference resolves, no scheme other than https in URLs, and the
+  `internals.json` chapter ids still match the scenes declared in
+  `src/three/internals.js`).
 - `npm run build` must succeed.
 - If validation fails because of your edit, fix the edit - never the validator.
 

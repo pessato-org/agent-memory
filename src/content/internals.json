@@ -1,0 +1,621 @@
+{
+  "_comment": "Deep-dive chapters for the 'inside the store' visualization. The chapter ids are a contract with src/three/internals.js: each id selects a hand-built 3D scene by name, so ids and their order are frozen. Editable values: title, html, takeaway, and beat text. A beat's 'at' is a progress mark in 0..1 against that chapter's animation, so moving one desynchronises the narration from the scene.",
+  "intro": {
+    "kicker": "SECOND LEVEL",
+    "title": "Open the store and look inside.",
+    "html": "<p>The system view shows <strong>where</strong> memory sits in an agent. This view shows <strong>how the substrate actually works</strong>: the data structure, the search algorithm, the write path, and the failure mode each one carries.</p>"
+  },
+  "stores": [
+    {
+      "id": "files",
+      "title": "Inside plain files",
+      "tagline": "No index, no schema, no transaction. Bytes and discipline.",
+      "chapters": [
+        {
+          "id": "bytes",
+          "label": "BYTES",
+          "title": "There is no database here",
+          "html": "<p><code>memory/maya.md</code> is a sequence of UTF-8 bytes broken by newline characters. That is the entire data structure. There is no index, no type system, and no query engine: the only thing that gives the file meaning is the text a model wrote into it and the text a model later reads back out.</p><p>Reading is one syscall and one decode. The price is paid in tokens, not milliseconds: every byte you load is a byte the model pays attention over, and the cost is linear in file size whether or not the fact you needed was in there.</p>",
+          "takeaway": "The substrate has no opinion. All structure is a convention the model agrees to keep.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The file opens as one flat run of UTF-8 bytes."
+            },
+            {
+              "at": 0.3,
+              "text": "Newlines are bytes too. The line structure is a reading convention, nothing more."
+            },
+            {
+              "at": 0.7,
+              "text": "412 bytes in, 118 tokens spent. You pay for the whole file whether or not it held the answer."
+            }
+          ]
+        },
+        {
+          "id": "tiers",
+          "label": "TWO TIERS",
+          "title": "A small index that is always loaded",
+          "html": "<p>One file per topic stops scaling the moment memory outgrows the context window. The standard fix is two tiers. A tiny index file (one line per memory, a name and a hook) is loaded on <em>every</em> run. The detail files it points at are loaded only when a line looks relevant.</p><p>The arithmetic is the whole design. An index of 40 memories at roughly 15 tokens each costs about 600 tokens on every single call. The detail files behind them may hold 50,000 tokens and cost nothing until something asks for one.</p>",
+          "takeaway": "Split memory into what you always pay for and what you pay for on demand.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The index file loads on every single run: forty lines, about six hundred tokens."
+            },
+            {
+              "at": 0.28,
+              "text": "A question arrives, and one line in the index looks relevant."
+            },
+            {
+              "at": 0.44,
+              "text": "Only that detail file is opened."
+            },
+            {
+              "at": 0.74,
+              "text": "Loading everything instead would cost fifty-one thousand tokens, on every call."
+            }
+          ]
+        },
+        {
+          "id": "grep",
+          "label": "LEXICAL SCAN",
+          "title": "Search that matches letters, not meaning",
+          "html": "<p>When memory is too large to load, the agent searches it. With files, that search is <code>grep</code>: a literal scan for a character pattern, line by line, in file order. It is exact, fast, and completely blind to synonyms.</p><p>A search for <code>allerg</code> finds \"allergic to peanuts\". The same search never finds \"cannot eat anything with nuts in it\", because those characters are not there. There is also no ranking: matches come back in the order they sit on disk, and relevance is judged only by the model that reads them.</p><p>Agents partly recover from this by searching several times with different words, which is slower than an index lookup but adapts as the agent understands the question better.</p>",
+          "takeaway": "Lexical recall fails silently. A miss looks exactly like an absence.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "grep walks the files line by line, matching characters."
+            },
+            {
+              "at": 0.14,
+              "text": "Three lines contain the letters a-l-l-e-r-g. They come back in file order, unranked."
+            },
+            {
+              "at": 0.62,
+              "text": "And a line that means exactly the same thing is never found, because those letters are not in it."
+            }
+          ]
+        },
+        {
+          "id": "edit",
+          "label": "WRITE PATH",
+          "title": "Read, splice, rewrite the whole file",
+          "html": "<p>There is no <code>UPDATE</code> statement. To change one line, the agent reads the file, locates the section, produces new text, and writes the file back. Most editors make the replacement atomic by writing a temporary file and renaming it over the original, so a crash leaves either the old file or the new one, never half of each.</p><p>What you do not get is concurrency control. Two agents that read the same file and both write it back will silently lose one set of edits, and nothing in the substrate notices. There is no transaction spanning two files either: updating an index and its detail file are two separate, independently-failing operations.</p>",
+          "takeaway": "Single writer is safe. Concurrent writers lose data with no error.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "There is no UPDATE statement. The agent reads the whole file."
+            },
+            {
+              "at": 0.18,
+              "text": "The model rewrites the section and produces new text."
+            },
+            {
+              "at": 0.34,
+              "text": "The new text goes to a temporary file, and a rename swaps it in atomically."
+            },
+            {
+              "at": 0.62,
+              "text": "Now run two agents against the same file at once."
+            },
+            {
+              "at": 0.86,
+              "text": "The second write lands on top of the first. Nothing anywhere reports the loss."
+            }
+          ]
+        },
+        {
+          "id": "git",
+          "label": "HISTORY",
+          "title": "Version control you get for free",
+          "html": "<p>Because memory is text on a filesystem, ordinary version control applies to it. Every write becomes a commit with an author, a timestamp, and a diff. That gives properties the other substrates have to build deliberately: you can see exactly when a belief changed, read the change as a diff, attribute it, and revert it.</p><p>It also makes memory reviewable by a human. A wrong memory is a wrong line of text, and fixing it is editing a file, not writing a migration.</p>",
+          "takeaway": "Plain text inherits the entire toolchain built for plain text.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Every write to memory was already a commit."
+            },
+            {
+              "at": 0.46,
+              "text": "The one that changed a belief can be read back as a diff."
+            },
+            {
+              "at": 0.68,
+              "text": "Author, date, previous value, and a one-command revert, all for free."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sqlite",
+      "title": "Inside SQLite",
+      "tagline": "Pages, a B-tree, a query planner, and one atomic moment.",
+      "chapters": [
+        {
+          "id": "schema",
+          "label": "SCHEMA",
+          "title": "A memory becomes a typed tuple",
+          "html": "<p>The schema is the write policy, expressed once and enforced mechanically. A memory is a row: an id, a memory type, a subject, the text, a created timestamp, and a <code>superseded_by</code> pointer that is <code>NULL</code> while the memory is current.</p><p>Everything the file substrate hoped the model would remember to do, the schema now demands. A row without a subject is rejected. A memory type outside the four you allow is rejected. The model can still write something false, but it cannot write something structurally malformed.</p>",
+          "takeaway": "Constraints move correctness from prompt discipline to the engine.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The schema states what a memory is allowed to be."
+            },
+            {
+              "at": 0.2,
+              "text": "An utterance arrives and gets shaped into a row."
+            },
+            {
+              "at": 0.34,
+              "text": "Typed, constrained, accepted."
+            },
+            {
+              "at": 0.56,
+              "text": "A malformed row is refused by the engine, not by a prompt."
+            }
+          ]
+        },
+        {
+          "id": "pages",
+          "label": "PAGES",
+          "title": "The database file is a stack of fixed-size pages",
+          "html": "<p>A SQLite database is one file divided into pages, 4 KiB each by default. Every table and every index is a B-tree whose nodes are pages. Row data lives in the leaf pages of the table's tree; interior pages hold only keys and pointers to other pages.</p><p>This is why the file can be enormous and a lookup still cheap. Reading a row does not mean reading the file. It means reading the handful of pages on the path to it.</p>",
+          "takeaway": "The unit of work is the page, not the row and not the file.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The database file is a sequence of fixed-size pages."
+            },
+            {
+              "at": 0.38,
+              "text": "The same pages, read as a B-tree: a root, interior pages, and leaves."
+            },
+            {
+              "at": 0.7,
+              "text": "The rows live in the leaves. Reaching one means reading a few pages, not the file."
+            }
+          ]
+        },
+        {
+          "id": "btree",
+          "label": "B-TREE",
+          "title": "Seek instead of scanning",
+          "html": "<p>An index on <code>subject</code> is a second B-tree, sorted by subject, whose leaves point back at rows. Finding Maya's memories means starting at the root page, comparing keys, following one pointer per level, and landing on the leaves that hold her rows.</p><p>The depth grows with the logarithm of the row count. A table of a hundred rows and a table of a million rows are three or four page reads apart. Without the index, the same query is a full scan: every page, every row, every time, growing linearly forever.</p>",
+          "takeaway": "The index is what keeps recall cost flat as memory grows.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "One query, run two ways."
+            },
+            {
+              "at": 0.14,
+              "text": "With the index: root, interior, leaf. Three pages."
+            },
+            {
+              "at": 0.42,
+              "text": "Without it: every page of the table, one after another."
+            },
+            {
+              "at": 0.84,
+              "text": "132 reads against 3, and the gap only widens as memory grows."
+            }
+          ]
+        },
+        {
+          "id": "planner",
+          "label": "PLANNER",
+          "title": "The engine chooses the strategy, not you",
+          "html": "<p>SQL says what you want, not how to get it. The query planner reads your <code>WHERE</code> clause, checks which indexes exist, estimates cost, and picks a plan. <code>EXPLAIN QUERY PLAN</code> shows the choice: <code>SEARCH memories USING INDEX idx_subject</code> when an index fits, or <code>SCAN memories</code> when none does.</p><p>That single word is the most useful diagnostic in an agent memory system. <code>SCAN</code> on a hot retrieval path is the difference between memory that stays fast at a million rows and memory that quietly degrades.</p>",
+          "takeaway": "If the plan says SCAN on a hot path, you are missing an index.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "SQL says what you want, not how to get it."
+            },
+            {
+              "at": 0.24,
+              "text": "The planner costs the options it has."
+            },
+            {
+              "at": 0.56,
+              "text": "It picks the index. Three pages."
+            },
+            {
+              "at": 0.7,
+              "text": "Drop the index and the same query becomes a full scan."
+            }
+          ]
+        },
+        {
+          "id": "txn",
+          "label": "TRANSACTION",
+          "title": "Two writes that must happen together",
+          "html": "<p>Superseding a memory is two changes: mark the old row superseded, and insert the new one. If the process dies between them, memory is either missing a fact or holding two contradictory ones. A transaction removes that possibility. Both statements run inside <code>BEGIN</code> and <code>COMMIT</code>, and the pair is atomic.</p><p>In write-ahead-log mode, changes are appended to a separate <code>-wal</code> file and only become visible when a commit record lands. A crash before that point leaves the database exactly as it was. Readers keep seeing the old snapshot while a writer works, so recall never observes a half-finished update.</p>",
+          "takeaway": "Atomicity is what lets memory hold invariants across multiple rows.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Superseding a memory is two writes that have to land together."
+            },
+            {
+              "at": 0.2,
+              "text": "Each change is appended to the write-ahead log first."
+            },
+            {
+              "at": 0.44,
+              "text": "The commit record makes both of them visible in the same instant."
+            },
+            {
+              "at": 0.6,
+              "text": "Run it again, and crash before the commit."
+            },
+            {
+              "at": 0.82,
+              "text": "No commit record, so the log is discarded. The database is exactly as it was."
+            }
+          ]
+        },
+        {
+          "id": "history",
+          "label": "HISTORY",
+          "title": "Supersession is a pointer, not a delete",
+          "html": "<p>Nothing is destroyed. The old row keeps its text and gains a pointer to the row that replaced it, so the rows form a chain from the first version of a belief to the current one.</p><p>Two queries fall out of that. <code>WHERE superseded_by IS NULL</code> is the present: clean, unambiguous, cheap. Following the chain is the past: what the agent believed, when it changed its mind, and what caused the change. The same table answers both.</p>",
+          "takeaway": "Keep the chain and you get an audit trail without a second store.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Five rows, and nothing has ever been deleted."
+            },
+            {
+              "at": 0.28,
+              "text": "The superseded row points at the one that replaced it."
+            },
+            {
+              "at": 0.46,
+              "text": "Filter on that pointer and you have the present."
+            },
+            {
+              "at": 0.78,
+              "text": "Move the clock back and the same table tells you what the agent believed then."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vector",
+      "title": "Inside a vector store",
+      "tagline": "Meaning as coordinates, search as geometry, recall as a gamble.",
+      "chapters": [
+        {
+          "id": "embed",
+          "label": "EMBEDDING",
+          "title": "Text becomes a list of numbers",
+          "html": "<p>An embedding model reads the memory, tokenizes it, runs it through a transformer, and pools the result into a single fixed-length vector of floating point numbers. Common sizes run from 384 to 3072 dimensions. Every memory, whatever its length, becomes exactly that many numbers.</p><p>No individual dimension means anything you can name. What matters is only relative position: text with similar meaning lands in a similar direction, because the model was trained to put it there.</p>",
+          "takeaway": "The vector is not the memory. It is a coordinate that stands in for it.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "One memory, on its way to becoming a coordinate."
+            },
+            {
+              "at": 0.12,
+              "text": "The text is split into tokens."
+            },
+            {
+              "at": 0.34,
+              "text": "The encoder runs, and the token vectors are pooled into one."
+            },
+            {
+              "at": 0.66,
+              "text": "1536 floating point numbers, and not one of them means anything you could name."
+            }
+          ]
+        },
+        {
+          "id": "normalize",
+          "label": "NORMALIZE",
+          "title": "Everything is pushed onto a sphere",
+          "html": "<p>Vectors get scaled to length 1, which places every memory on the surface of a unit hypersphere. Direction survives, magnitude is discarded.</p><p>This is a deliberate trade. Magnitude tends to track how long or emphatic a passage is, and that is noise for a similarity question. Once every vector has the same length, the cosine of the angle between two of them equals their dot product, so the comparison collapses into one cheap multiply-and-add.</p>",
+          "takeaway": "Discarding magnitude makes similarity comparable and fast.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Three memories, three vectors of quite different lengths."
+            },
+            {
+              "at": 0.36,
+              "text": "Every one is scaled to length 1, onto the surface of a sphere."
+            },
+            {
+              "at": 0.64,
+              "text": "Direction survives, magnitude is discarded, and similarity becomes one cheap dot product."
+            }
+          ]
+        },
+        {
+          "id": "cosine",
+          "label": "SIMILARITY",
+          "title": "Similarity is an angle",
+          "html": "<p>Ranking is now geometry. Embed the query, measure the angle to each stored memory, and sort. A tight angle means the model considers the two texts close in meaning; a wide one means it does not.</p><p>The score is continuous, which is the substrate's real gift: there is no such thing as a failed lookup. Every query returns its nearest neighbours ranked, even when nothing stored is actually relevant. That is also the trap, and it is why a similarity floor and a small <code>k</code> matter more than they look like they should.</p>",
+          "takeaway": "Nearest neighbours always exist, whether or not they are relevant.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The query is embedded into the same space as the memories."
+            },
+            {
+              "at": 0.34,
+              "text": "Similarity is the angle between the query and each memory."
+            },
+            {
+              "at": 0.52,
+              "text": "Sort by that angle and you have the ranking."
+            },
+            {
+              "at": 0.8,
+              "text": "The fourth result came back too. Something else has to decide it is too far away."
+            }
+          ]
+        },
+        {
+          "id": "hnsw",
+          "label": "HNSW",
+          "title": "A skip list through high-dimensional space",
+          "html": "<p>Comparing a query against every vector is exact and too slow at scale, so production stores use an approximate index. HNSW builds a layered proximity graph: the top layer holds a sparse scattering of nodes with long edges, and each layer down is denser with shorter ones.</p><p>Search enters at the top, greedily walks to the closest node it can find, drops a layer, and repeats. Long hops cover distance; short hops refine. It touches a few hundred nodes instead of a few million.</p><p>The word approximate is load-bearing. The walk can settle into a local minimum and miss a true neighbour. The <code>ef</code> parameter widens the candidate list to make that less likely, trading latency for recall.</p>",
+          "takeaway": "Vector search is a tunable bet: speed against the odds of a miss.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The index is a stack of proximity graphs, sparse at the top, dense at the bottom."
+            },
+            {
+              "at": 0.26,
+              "text": "Search enters at the top and greedily walks toward the query."
+            },
+            {
+              "at": 0.5,
+              "text": "Each drop to a denser layer refines it. Hundreds of nodes touched, not millions."
+            },
+            {
+              "at": 0.78,
+              "text": "And one true neighbour was never on the path. That is what approximate means."
+            }
+          ]
+        },
+        {
+          "id": "limits",
+          "label": "LIMITS",
+          "title": "Near in meaning is not the same as true",
+          "html": "<p>Embeddings capture topic far better than they capture polarity. \"Allergic to peanuts\" and \"loves peanut sauce\" are about the same subject and land close together, so a similarity search will happily return both, ranked by resemblance rather than by truth.</p><p>Negation, tense, and recency are all weak in the same way. Nothing in the geometry knows that one fact replaced another. That is why vector stores are usually paired with something else: a keyword index for exact terms, a metadata filter for time and subject, and a reranker or an outright judgement step to decide what is actually current.</p>",
+          "takeaway": "Similarity ranks resemblance. Something else has to rank truth.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Four memories that all sit in the same small neighbourhood."
+            },
+            {
+              "at": 0.3,
+              "text": "A query about peanuts pulls in everything near it."
+            },
+            {
+              "at": 0.5,
+              "text": "All three come back scoring above 0.88."
+            },
+            {
+              "at": 0.66,
+              "text": "One of them is the opposite of true, and the geometry has no way to know that."
+            },
+            {
+              "at": 0.76,
+              "text": "Which is why nothing serious ships on similarity alone."
+            }
+          ]
+        },
+        {
+          "id": "mutate",
+          "label": "MUTATION",
+          "title": "Updating means re-embedding",
+          "html": "<p>You cannot edit a vector. Changing a memory means re-running the embedding model, upserting the new vector under the same id, and repairing the neighbourhood graph around it. Deletes are usually tombstones: the node stays in the index, flagged, until a compaction pass removes it.</p><p>The heavier constraint is the model itself. Vectors from one embedding model are meaningless to another, so switching models means re-embedding every memory you hold. Choosing an embedding model is a migration commitment, not a configuration value.</p>",
+          "takeaway": "The embedding model is part of your schema. Changing it rewrites everything.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Changing a memory means changing its text."
+            },
+            {
+              "at": 0.26,
+              "text": "Which means running the embedding model over it again."
+            },
+            {
+              "at": 0.42,
+              "text": "The point lands somewhere else, and its neighbourhood has to be rewired."
+            },
+            {
+              "at": 0.62,
+              "text": "Deletes leave tombstones behind until a compaction pass clears them."
+            },
+            {
+              "at": 0.8,
+              "text": "Change the embedding model itself and every vector you hold has to be rebuilt."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "graph",
+      "title": "Inside a knowledge graph",
+      "tagline": "Facts as edges, identity as a decision, time as two separate clocks.",
+      "chapters": [
+        {
+          "id": "extract",
+          "label": "EXTRACT",
+          "title": "Sentences become triples",
+          "html": "<p>A model reads the conversation and emits structured facts: a subject, a relationship, an object. \"I cannot do the Thai place, peanut allergy\" becomes <code>(Maya) -[ALLERGIC_TO]-&gt; (Peanuts)</code>. One sentence often yields several triples, each of which becomes an edge.</p><p>This step is the substrate's real cost. Every write runs an extraction model, so writes are slow and expensive compared to appending a line or inserting a row, and the quality of the whole graph is bounded by the quality of this one prompt.</p>",
+          "takeaway": "The graph is only ever as good as its extraction step.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "One ordinary sentence from the conversation."
+            },
+            {
+              "at": 0.18,
+              "text": "A model reads it and looks for facts worth keeping."
+            },
+            {
+              "at": 0.34,
+              "text": "Out come triples: a subject, a relationship, an object."
+            },
+            {
+              "at": 0.6,
+              "text": "Each triple becomes an edge between two nodes."
+            },
+            {
+              "at": 0.85,
+              "text": "Every write costs a model call. This is the graph's real bill."
+            }
+          ]
+        },
+        {
+          "id": "resolve",
+          "label": "RESOLVE",
+          "title": "Deciding that two names are one thing",
+          "html": "<p>\"Sam\", \"Sammy\", and \"my partner\" have to become a single node, or the graph quietly splits into fragments that never connect. Entity resolution compares each new mention against existing nodes, usually by embedding similarity plus a model judgement, and either links to an existing node or creates one.</p><p>Both errors hurt and they hurt differently. Merging two real people fuses their facts into one incoherent entity. Failing to merge one person leaves their history scattered across nodes that no traversal will ever visit together.</p>",
+          "takeaway": "Identity is a judgement call, and it is where graphs go wrong first.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Three different ways of naming the same person."
+            },
+            {
+              "at": 0.24,
+              "text": "Each new mention is compared against the nodes that already exist."
+            },
+            {
+              "at": 0.44,
+              "text": "Matched, so they collapse into a single node carrying its aliases."
+            },
+            {
+              "at": 0.7,
+              "text": "Get this wrong in either direction and the graph quietly breaks."
+            }
+          ]
+        },
+        {
+          "id": "bitemporal",
+          "label": "TWO CLOCKS",
+          "title": "When it was true, and when you found out",
+          "html": "<p>Serious graph memory keeps two independent timestamps on every edge. Valid time is when the fact was true in the world. Transaction time is when the system learned it. They are routinely different: Maya's relationship ended on the 18th, and the agent heard about it on the 20th.</p><p>Holding both lets you ask two very different questions. What was true on Friday? And what did the agent believe on Friday? The gap between those answers is exactly where an agent's mistakes live.</p>",
+          "takeaway": "One timestamp cannot distinguish being wrong from being late.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Two axes: when a fact was true, and when the system found out."
+            },
+            {
+              "at": 0.22,
+              "text": "The PARTNER edge was true for seventeen months."
+            },
+            {
+              "at": 0.56,
+              "text": "The agent learned it had ended two days after it did."
+            },
+            {
+              "at": 0.78,
+              "text": "Those two days are the difference between being wrong and being late."
+            }
+          ]
+        },
+        {
+          "id": "invalidate",
+          "label": "INVALIDATE",
+          "title": "Facts expire, they do not disappear",
+          "html": "<p>When a new fact contradicts an old one, the old edge is not deleted. It gets an <code>invalid_at</code> stamp, and the new edge is written alongside it. The <code>PARTNER</code> edge between Maya and Sam still exists; it simply stopped being true on a particular date.</p><p>Default retrieval filters to edges where <code>invalid_at IS NULL</code>, so the present stays clean. Setting the filter to a past date replays what the graph held then. History is not archived somewhere else, it is the same structure read with a different clause.</p>",
+          "takeaway": "Invalidation keeps the past queryable instead of throwing it away.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The graph as it stands, with Sam still attached to Maya."
+            },
+            {
+              "at": 0.22,
+              "text": "A contradicting fact arrives."
+            },
+            {
+              "at": 0.34,
+              "text": "The edge is stamped with an end date. It is not removed."
+            },
+            {
+              "at": 0.54,
+              "text": "Default retrieval filters it out, so the present stays clean."
+            },
+            {
+              "at": 0.8,
+              "text": "Set the clock back and it returns, because it was true then."
+            }
+          ]
+        },
+        {
+          "id": "traverse",
+          "label": "TRAVERSE",
+          "title": "The answer is a path, not a match",
+          "html": "<p>Retrieval starts at an anchor node and expands outward one hop at a time, filtered by relationship type and validity. \"Somewhere for dinner on Friday\" walks from Maya to Peanuts along <code>ALLERGIC_TO</code>, to Luna along <code>BOOKED</code>, and on to Italian along <code>CUISINE</code>. The expired <code>PARTNER</code> edge is skipped by the filter, so Sam never enters the answer.</p><p>This is the capability the other three substrates cannot reach. A constraint two hops away from the question still arrives, because the structure connects them, not because the wording happened to be similar.</p>",
+          "takeaway": "Multi-hop connection is the reason to accept a graph's write cost.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "The question anchors on Maya and expands outward."
+            },
+            {
+              "at": 0.3,
+              "text": "One hop out: the facts attached to her directly."
+            },
+            {
+              "at": 0.44,
+              "text": "The expired edge fails the filter, so Sam never enters the answer."
+            },
+            {
+              "at": 0.58,
+              "text": "Two hops out: facts about the things those facts point at."
+            },
+            {
+              "at": 0.74,
+              "text": "A constraint, a learned procedure, and a precedent, none of which mention Friday."
+            }
+          ]
+        },
+        {
+          "id": "community",
+          "label": "COMMUNITIES",
+          "title": "Zooming out to answer broad questions",
+          "html": "<p>Traversal answers specific questions well and broad ones badly. \"What do you know about how I eat?\" has no single anchor and no short path. Systems in the GraphRAG line handle this by clustering the graph into communities, then having a model write a summary of each cluster ahead of time.</p><p>Broad questions are answered from those summaries; specific ones drop back to traversal over raw edges. The graph ends up holding two resolutions of the same knowledge, and retrieval picks a scale to read it at.</p>",
+          "takeaway": "Local questions want paths. Global questions want summaries.",
+          "beats": [
+            {
+              "at": 0.0,
+              "text": "Zoom out far enough and a graph stops being a set of paths."
+            },
+            {
+              "at": 0.32,
+              "text": "Clustering finds regions of the graph that hang together."
+            },
+            {
+              "at": 0.6,
+              "text": "A model writes one summary per cluster, ahead of time."
+            },
+            {
+              "at": 0.82,
+              "text": "Broad questions read the summaries. Specific ones drop back to the raw edges."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

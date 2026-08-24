@@ -620,7 +620,7 @@ class VectorView {
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 14), new THREE.MeshBasicMaterial({ color: COL.violet }))
       const glow = pulseSprite(COL.violet, 0.7); glow.material.opacity = 0.55
       const label = makeLabel('m5 · relationship ended', { color: '#7254a3', size: 0.3, bg: 'rgba(255,253,248,0.78)' })
-      label.position.set(0, 0.32, 0)
+      label.position.set(-0.95, 0.44, 0)
       m5.add(dot, glow, label)
       m5.position.copy(m5pos)
       m5.visible = false
@@ -642,7 +642,8 @@ class VectorView {
       const simLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: COL.red, transparent: true, opacity: 0 }))
       this.transient.add(simLine)
       const simLabel = makeLabel('similarity 0.87  →  CONTRADICTS', { color: '#c44955', size: 0.28, bg: 'rgba(255,253,248,0.78)' })
-      simLabel.position.copy(m5pos.clone().lerp(m3.position, 0.5)).add(new THREE.Vector3(0, 0.3, 0))
+      // Offset well clear of the two point labels it sits between.
+      simLabel.position.copy(m5pos.clone().lerp(m3.position, 0.5)).add(new THREE.Vector3(1.95, 0.42, 0.1))
       simLabel.visible = false
       this.transient.add(simLabel)
 
@@ -689,7 +690,7 @@ class GraphView {
     scene.add(this.group)
 
     this.nodeDefs = [
-      { id: 'maya', label: 'Maya', pos: [0, 0.3, 0], size: 0.28, color: COL.text },
+      { id: 'maya', label: 'Maya', pos: [0, 0.3, 0], size: 0.28, color: COL.amber },
       { id: 'peanuts', label: 'Peanuts', pos: [2.6, 1.7, -0.5], size: 0.17 },
       { id: 'luna', label: 'Luna', pos: [2.3, -1.3, 0.4], size: 0.2 },
       { id: 'sam', label: 'Sam', pos: [-2.5, 1.2, 0.3], size: 0.2 },
