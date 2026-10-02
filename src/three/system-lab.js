@@ -392,6 +392,7 @@ export function initSystemLab(canvas) {
     const tag = makeLabel(tagText, { color: state.phase === 'store' ? '#d66f28' : state.phase === 'retrieve' ? '#177a9b' : '#7254a3', size: 0.18, bg: '#fffdf8', pad: 10 })
     tag.position.set(0, 0.38, 0)
     routePacket.add(tag)
+    routePacket.userData.tag = tag
     routePacket.traverse((object) => {
       if (!object.material) return
       object.material.depthTest = false
@@ -673,6 +674,18 @@ export function initSystemLab(canvas) {
       const impactDistance = Math.abs(progress - IMPACT_AT[state.phase])
       const impactPulse = Math.max(0, 1 - impactDistance / 0.06)
       routePacket.scale.setScalar(0.92 + Math.sin(t * 4) * 0.04 + impactPulse * 0.35)
+      /* The tag reads the packet while it travels, but it is a wide sprite drawn
+         over everything - park it before the packet lands so it never sits on top
+         of the memory graphic at the exact moment that graphic changes. */
+      const tag = routePacket.userData.tag
+      if (tag) {
+        const arriving = 1 - revealBetween(progress, impact - 0.07, impact - 0.01)
+        const leaving = state.phase === 'retrieve'
+          ? revealBetween(progress, RETRIEVE_RELEASE_AT, RETRIEVE_RELEASE_AT + 0.035)
+          : 0
+        tag.material.opacity = Math.max(arriving, leaving)
+        tag.visible = tag.material.opacity > 0.02
+      }
     }
     const impact = IMPACT_AT[state.phase]
     const borderFlash = revealBetween(progress, impact, impact + 0.025) * (1 - revealBetween(progress, impact + 0.03, impact + 0.16))

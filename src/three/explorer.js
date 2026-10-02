@@ -14,16 +14,24 @@ const C = (hex) => new THREE.Color(hex)
 
 /* ---------- shared bits ---------- */
 
-function contextTarget(x = 6.2, y = 2.4) {
-  // the "context window" the retrieved memories fly into
+function contextTarget(x = 6.2, y = 2.4, { embedded = false } = {}) {
+  // Standalone: the "context window" the retrieved memories fly into.
+  // Embedded in the lab, the working context is already a node outside the
+  // long-term memory chamber, so drawing a second one inside the chamber would
+  // put the context window inside memory. There it is only a staging area the
+  // selected memories gather in before the route carries them out.
   const g = new THREE.Group()
-  const frame = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.5, 3.5)),
-    new THREE.LineBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0.5 })
-  )
-  g.add(frame)
-  const label = makeLabel('working context', { color: '#177a9b', size: 0.38, bg: '#fffdf8' })
-  label.position.set(0, -2, 0)
+  if (!embedded) {
+    const frame = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.PlaneGeometry(3.5, 3.5)),
+      new THREE.LineBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0.5 })
+    )
+    g.add(frame)
+  }
+  const label = embedded
+    ? makeLabel('selected → working context', { color: '#177a9b', size: 0.3, bg: '#fffdf8' })
+    : makeLabel('working context', { color: '#177a9b', size: 0.38, bg: '#fffdf8' })
+  label.position.set(0, embedded ? 1.85 : -2, 0)
   g.add(label)
   g.position.set(x, y, 0)
   return g
@@ -97,7 +105,7 @@ class FilesView {
     fname.position.set(-1.6, 3.35, 0)
     this.group.add(fname)
 
-    this.ctxTarget = contextTarget(4.9, 0.6)
+    this.ctxTarget = contextTarget(4.9, 0.6, { embedded })
     this.ctxTarget.visible = false
     this.group.add(this.ctxTarget)
 
@@ -196,9 +204,14 @@ class FilesView {
         { id: 'm4', line: 14, text: 'Check menu for peanuts' },
         { id: 'm1', line: 3, text: 'Peanut allergy · severe' },
       ]
+      // In the lab the packet leaves memory again partway through the cycle, so
+      // the excerpts have to be gathered before that and cleared just after it.
+      const scanDur = this.embedded ? 1.8 : 2.2
+      const flyAt = this.embedded ? 2.2 : 2.6
+      const clearAt = this.embedded ? 4.7 : 5.2
       // scan bar sweeps the page
       tl.call(0.1, () => { this.scanBar.material.opacity = 0.25 })
-      tl.add(0.1, 2.2, (p) => {
+      tl.add(0.1, scanDur, (p) => {
         this.scanBar.position.y = this.page.position.y + 2.7 - p * 5.4
         // highlight lines as the bar passes
         for (const m of matches) {
@@ -207,7 +220,7 @@ class FilesView {
           }
         }
       }, ease.linear)
-      tl.call(2.4, () => { this.scanBar.material.opacity = 0 })
+      tl.call(0.2 + scanDur, () => { this.scanBar.material.opacity = 0 })
       // fly excerpts to context
       retrieved.forEach((m, i) => {
         const chip = makePacket(COL.cyan, 0.5)
@@ -220,12 +233,12 @@ class FilesView {
         const from = [-1.6, this.lineY(m.line), 0.2]
         const toY = 0.6 + result.position.y
         const curve = curveFrom([from, [1.6, from[1] + 0.7, 0.6], [4.9, toY, 0]])
-        tl.call(2.6 + i * 0.35, () => { chip.visible = true })
-        tl.add(2.6 + i * 0.35, 1.1, (p) => moveAlong(chip, curve, p))
-        tl.call(3.75 + i * 0.35, () => { chip.visible = false; result.visible = true })
-        tl.call(5.2, () => { result.visible = false })
+        tl.call(flyAt + i * 0.35, () => { chip.visible = true })
+        tl.add(flyAt + i * 0.35, 1.1, (p) => moveAlong(chip, curve, p))
+        tl.call(flyAt + 1.15 + i * 0.35, () => { chip.visible = false; result.visible = true })
+        tl.call(clearAt, () => { result.visible = false })
       })
-      tl.call(5.2, () => {
+      tl.call(clearAt, () => {
         for (const m of matches) this.setOverride(m.id, { color: '#475467' })
         this.overrides = {}
         this.draw()
@@ -299,7 +312,7 @@ class SqliteView {
 
     for (const def of this.rowDefs) this.addRow(def)
 
-    this.ctxTarget = contextTarget(4.9, 0.6)
+    this.ctxTarget = contextTarget(4.9, 0.6, { embedded })
     this.ctxTarget.visible = false
     this.group.add(this.ctxTarget)
   }
@@ -334,6 +347,9 @@ class SqliteView {
   phase(name) {
     const tl = new Timeline()
     this.ctxTarget.visible = false
+    if (this.transient) { this.group.remove(this.transient); disposeGroup(this.transient) }
+    this.transient = new THREE.Group()
+    this.group.add(this.transient)
     // reset
     for (const id of Object.keys(this.rows)) {
       if (id === 'm5') { this.group.remove(this.rows[id]); delete this.rows[id]; continue }
@@ -380,25 +396,38 @@ class SqliteView {
       hits.forEach((id, i) => {
         tl.call(0.4 + i * 0.45, () => this.rowColor(id, 0xd9eef3, COL.cyan))
       })
-      // rows fly to context
+      // A SELECT copies rows out, it does not empty the table: the originals
+      // stay selected in place and result copies travel to the context.
+      const flyAt = this.embedded ? 2.2 : 2.6
+      const clearAt = this.embedded ? 4.7 : 5.4
       hits.forEach((id, i) => {
         const r = this.rows[id]
+        const copy = new THREE.Group()
+        const slab = new THREE.Mesh(
+          new THREE.BoxGeometry(6, 0.52, 0.24),
+          new THREE.MeshBasicMaterial({ color: 0xd9eef3, transparent: true, opacity: 0.98 })
+        )
+        const edge = new THREE.LineSegments(
+          new THREE.EdgesGeometry(slab.geometry),
+          new THREE.LineBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0.85 })
+        )
+        const label = makeLabel(r.userData.def.label, { color: '#177a9b', size: 0.34 })
+        label.position.z = 0.2
+        copy.add(slab, edge, label)
+        copy.position.set(-1.2, r.userData.def.y, 0.3)
+        copy.visible = false
+        this.transient.add(copy)
         const targetY = 1.35 - i * 0.72
-        tl.add(2.3 + i * 0.3, 1.0, (p) => {
-          r.position.x = -1.2 + p * 6.1
-          r.position.y = r.userData.def.y + p * (targetY - r.userData.def.y)
-          r.scale.setScalar(1 - p * 0.45)
-          r.userData.label.material.opacity = 1 - p * 0.3
+        tl.call(flyAt + i * 0.3, () => { copy.visible = true })
+        tl.add(flyAt + i * 0.3, 1.0, (p) => {
+          copy.position.x = -1.2 + p * 6.1
+          copy.position.y = r.userData.def.y + p * (targetY - r.userData.def.y)
+          copy.scale.setScalar(1 - p * 0.45)
         })
+        tl.call(clearAt, () => { copy.visible = false })
       })
-      tl.call(5.4, () => {
-        hits.forEach((id) => {
-          const r = this.rows[id]
-          r.position.set(-1.2, r.userData.def.y, 0)
-          r.scale.setScalar(1)
-          r.userData.label.material.opacity = 1
-          this.rowColor(id, 0xf7f4ed, COL.grey)
-        })
+      tl.call(clearAt, () => {
+        hits.forEach((id) => this.rowColor(id, 0xf7f4ed, COL.grey))
       })
     }
 
@@ -494,13 +523,13 @@ class VectorView {
       const glow = pulseSprite(COL.amber, 0.7)
       glow.material.opacity = 0.55
       const label = makeLabel(def.label, { color: '#d66f28', size: 0.3, bg: 'rgba(255,253,248,0.72)' })
-      if (def.id === 'm1') label.position.set(0, 0.48, 0)
-      if (def.id === 'm2') label.position.set(-0.62, -0.02, 0)
-      if (def.id === 'm3') label.position.set(0, -0.44, 0)
-      if (def.id === 'm4') label.position.set(0.72, 0.02, 0)
+      // Offsets keep each label clear of its own dot and of its neighbours -
+      // m1/m2/m4 sit in one tight cluster, so they are fanned out.
+      const offsets = { m1: [0, 0.5], m2: [-1.05, -0.34], m3: [0, -0.46], m4: [0.98, -0.3] }
+      label.position.set(...(offsets[def.id] || [0, 0.5]), 0)
       g.add(dot, glow, label)
       g.position.set(...def.pos)
-      g.userData = { dot, glow, label }
+      g.userData = { dot, glow, label, labelOffset: label.position.clone() }
       this.group.add(g)
       this.mems[def.id] = g
     }
@@ -520,6 +549,7 @@ class VectorView {
       const m = this.mems[id]
       m.visible = true
       m.scale.setScalar(1)
+      m.userData.label.visible = true
       m.userData.dot.material.color.set(COL.amber)
       m.userData.glow.material.color.set(COL.amber)
     }
@@ -584,13 +614,18 @@ class VectorView {
         const lineGeo = new THREE.BufferGeometry().setFromPoints([qpos, m.position])
         const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: COL.cyan, transparent: true, opacity: 0 }))
         this.transient.add(line)
-        const score = makeLabel(h.score, { color: '#177a9b', size: 0.26, bg: 'rgba(255,253,248,0.78)' })
-        score.position.copy(qpos.clone().lerp(m.position, 0.55)).add(new THREE.Vector3(0, 0.18, 0))
+        // The score belongs to its memory, so it is appended to that memory's own
+        // label. Free-floating score labels used to pile up on the query label
+        // and on each other: the three hits sit in one tight cluster.
+        const def = this.memDefs.find((d) => d.id === h.id)
+        const score = makeLabel(`${def.label} · ${h.score}`, { color: '#177a9b', size: 0.3, bg: 'rgba(255,253,248,0.82)' })
+        score.position.copy(m.position).add(m.userData.labelOffset)
         score.visible = false
         this.transient.add(score)
         tl.call(h.at, () => {
           line.material.opacity = 0.7
           score.visible = true
+          m.userData.label.visible = false
           m.userData.dot.material.color.set(COL.cyan)
           m.userData.glow.material.color.set(COL.cyan)
         })
@@ -601,8 +636,9 @@ class VectorView {
         m3.userData.dot.material.color.set(0x8a929f)
         m3.userData.glow.material.color.set(0x8a929f)
       })
-      tl.call(5.6, () => {
+      tl.call(this.embedded ? 4.7 : 5.6, () => {
         for (const h of hits) {
+          this.mems[h.id].userData.label.visible = true
           this.mems[h.id].userData.dot.material.color.set(COL.amber)
           this.mems[h.id].userData.glow.material.color.set(COL.amber)
         }
@@ -669,7 +705,10 @@ class VectorView {
   }
 
   update(dt, t) {
-    this.group.rotation.y += dt * 0.06
+    // Embedded, the group is scaled flat on z, so a full turn would collapse the
+    // cloud into a vertical sliver. Rock it inside a small angle instead.
+    if (this.embedded) this.group.rotation.y = Math.sin(t * 0.19) * 0.13
+    else this.group.rotation.y += dt * 0.06
   }
 
   dispose() {
